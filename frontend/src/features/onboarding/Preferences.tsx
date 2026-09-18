@@ -278,7 +278,7 @@ export function Preferences() {
       <aside className="callout sage-callout">
         <Icon name="info" />
         <div>
-          <strong>How CalmPath respects your input</strong>
+          <strong>How edaptify respects your input</strong>
           <p>
             These choices are a starting point, not a label. You can change your
             preferences as you discover what works for you.

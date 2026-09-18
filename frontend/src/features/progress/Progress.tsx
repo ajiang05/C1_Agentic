@@ -42,7 +42,7 @@ export function Progress() {
     const href = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = href;
-    a.download = "calmpath-progress.json";
+    a.download = "edaptify-progress.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(href), 1000);
   };

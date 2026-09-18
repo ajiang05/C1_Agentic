@@ -10,7 +10,7 @@ async function sample(page: Page) {
 test("preferences, sensory controls, and navigation persist", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#preferences");
   await page
     .getByRole("radio", { name: "Seeing a structured visual diagram" })
     .check();
@@ -88,9 +88,9 @@ test("sample lesson adapts, source flag persists, and progress exports", async (
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export progress report" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("calmpath-progress.json");
+  expect(download.suggestedFilename()).toBe("edaptify-progress.json");
   const raw = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("calmpath.workspace.v1")!),
+    JSON.parse(localStorage.getItem("edaptify.workspace.v1")!),
   );
   expect(raw.flags).toHaveLength(1);
   expect(raw.history).toHaveLength(2);
@@ -108,20 +108,12 @@ test("file selection rejects unsupported files and retains inputs on API failure
   await page
     .getByLabel("Upload syllabus", { exact: true })
     .setInputFiles({
-      name: "notes.pdf",
+      name: "syllabus.pdf",
       mimeType: "application/pdf",
-      buffer: Buffer.from("pdf"),
+      buffer: Buffer.from("%PDF-1.4 syllabus"),
     });
-  await expect(page.getByRole("alert")).toContainText(
-    "Please choose a .txt or .md file",
-  );
-  await page
-    .getByLabel("Upload syllabus", { exact: true })
-    .setInputFiles({
-      name: "syllabus.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("Graph algorithms"),
-    });
+  await expect(page.getByText("syllabus.pdf", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await page
     .getByLabel("Upload course notes", { exact: true })
     .setInputFiles({
@@ -133,7 +125,7 @@ test("file selection rejects unsupported files and retains inputs on API failure
   await expect(page.getByRole("alert")).toContainText(
     "temporarily unavailable",
   );
-  await expect(page.getByText("syllabus.txt", { exact: true })).toBeVisible();
+  await expect(page.getByText("syllabus.pdf", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: "What’s your course called?" }),
   ).toHaveValue("Algorithms");
@@ -361,6 +353,15 @@ test("desktop screens render without runtime errors, including dark theme", asyn
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Welcome, Matthew" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("welcome-desktop.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Start learning" }).click();
+  await expect(page).toHaveURL(/#preferences/);
   await page.screenshot({
     path: testInfo.outputPath("preferences-desktop.png"),
     fullPage: true,

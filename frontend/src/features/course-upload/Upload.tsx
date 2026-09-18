@@ -16,10 +16,8 @@ function FileCard({
   const [dragging, setDragging] = useState(false);
   const accept = (f?: File) => {
     if (!f) return;
-    if (!/\.(txt|md)$/i.test(f.name)) {
-      setError(
-        "Please choose a .txt or .md file. PDF support is not available yet.",
-      );
+    if (!/\.(txt|md|pdf)$/i.test(f.name)) {
+      setError("Please choose a .txt, .md, or .pdf file.");
       return;
     }
     if (f.size === 0 || f.size > 10 * 1024 * 1024) {
@@ -38,12 +36,14 @@ function FileCard({
             ? "Syllabus & Schedule"
             : "Course Materials & Notes"}
         </h2>
-        <Badge tone={kind === "syllabus" ? "sand" : "sage"}>Required</Badge>
+        <Badge tone={kind === "syllabus" ? "sand" : "sage"}>
+          {kind === "syllabus" ? "Required" : "Optional"}
+        </Badge>
       </div>
       <p>
         {kind === "syllabus"
           ? "Your course topics, learning goals, and the order you’ll explore them."
-          : "The explanations, examples, and references your lessons will be built from."}
+          : "Optional explanations, examples, and references your lessons can draw from."}
       </p>
       <div
         className={`dropzone ${dragging ? "dragging" : ""} ${file ? "has-file" : ""}`}
@@ -61,7 +61,7 @@ function FileCard({
         <input
           ref={input}
           type="file"
-          accept=".txt,.md,text/plain,text/markdown"
+          accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
           aria-label={
             kind === "syllabus" ? "Upload syllabus" : "Upload course notes"
           }
@@ -123,7 +123,7 @@ function FileCard({
             >
               Choose {kind === "syllabus" ? "syllabus" : "notes"}
             </button>
-            <small>TXT or Markdown · up to 10 MB</small>
+            <small>TXT, Markdown, or PDF · up to 10 MB</small>
           </>
         )}
       </div>
@@ -161,8 +161,8 @@ export function Upload() {
           We’ll find a way through, together.
         </h1>
         <p>
-          Upload your syllabus and course notes. Turn what you need to learn
-          into a gentle, step-by-step journey that moves at your pace.
+          Upload your syllabus and, optionally, course notes. Turn what you need
+          to learn into a gentle, step-by-step journey that moves at your pace.
         </p>
       </header>
       <div className="callout">
@@ -218,13 +218,17 @@ export function Upload() {
       <div className="page-actions">
         <p className="small">
           <Icon name="upload" size={16} />
-          {Number(!!syllabus) + Number(!!notes)} of 2 materials selected
+          {syllabus
+            ? notes
+              ? "Syllabus and notes ready"
+              : "Syllabus ready · notes optional"
+            : "Add a syllabus to continue"}
         </p>
         <button
           className="button primary"
-          disabled={!syllabus || !notes || !name.trim() || !!busy}
+          disabled={!syllabus || !name.trim() || !!busy}
           onClick={() => {
-            if (syllabus && notes) void upload(name.trim(), syllabus, notes);
+            if (syllabus) void upload(name.trim(), syllabus, notes);
           }}
         >
           {busy || "Generate learning journey"}

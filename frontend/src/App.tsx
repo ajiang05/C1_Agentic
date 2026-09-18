@@ -7,6 +7,7 @@ import { Upload } from "./features/course-upload/Upload";
 import { Journey } from "./features/journey/Journey";
 import { LessonPage } from "./features/lesson/Lesson";
 import { Progress } from "./features/progress/Progress";
+import { Welcome } from "./features/welcome/Welcome";
 import "./styles/app.css";
 const tabs: [Page, string][] = [
   ["preferences", "Preferences"],
@@ -35,6 +36,23 @@ function Shell() {
     sand: "Warm Sand",
     slate: "Muted Slate",
   }[state.sensory.theme];
+  if (page === "welcome") {
+    return (
+      <>
+        <a
+          href="#main-content"
+          className="skip-link"
+          onClick={(e) => {
+            e.preventDefault();
+            document.getElementById("main-content")?.focus();
+          }}
+        >
+          Skip to main content
+        </a>
+        <Welcome />
+      </>
+    );
+  }
   return (
     <>
       <a
@@ -47,8 +65,7 @@ function Shell() {
       >
         Skip to main content
       </a>
-      <div className="sensory-bar">
-        <div>
+      <div className="sensory-bar">        <div>
           <button onClick={() => setSettings(true)}>
             <Icon name="palette" size={15} />
             Theme: {themeName}
@@ -91,11 +108,11 @@ function Shell() {
         <button
           className="brand"
           onClick={() => go(state.journey ? "journey" : "preferences")}
-          aria-label="CalmPath home"
+          aria-label="edaptify home"
         >
-          <img src="/calmpath.svg" width="37" height="37" alt="" />
+          <img src="/edaptify.svg" width="37" height="37" alt="" />
           <span>
-            <strong>CalmPath</strong>
+            <strong>edaptify</strong>
             <small>Adaptive Study Journey</small>
           </span>
         </button>
@@ -201,7 +218,7 @@ function Shell() {
       <footer className="app-footer">
         <span>
           <Icon name="shield" size={19} />
-          CalmPath Study Environment <b>·</b> A grounded, gentle pace
+          edaptify Study Environment <b>·</b> A grounded, gentle pace
         </span>
         <div>
           <button 
