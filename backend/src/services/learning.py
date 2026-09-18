@@ -1,0 +1,256 @@
+"""
+Learning workflow + mastery persistence — Person 7 primary plug point.
+
+Agents propose evaluation / next_action; THIS module is the only path that
+records attempts and applies mastery updates.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
+from src.agents import curriculum, evaluation, learning_manager, tutor
+from src.api.schemas import (
+    Attempt,
+    CreateStudentResponse,
+    GenerateJourneyResponse,
+    JourneyNode,
+    LearningJourney,
+    LearningPreferences,
+    Lesson,
+    StudentProgress,
+    SubmitAttemptRequest,
+    SubmitAttemptResponse,
+    UploadCourseResponse,
+)
+from src.db.memory_store import get_store
+from src.db.supabase_client import upload_to_storage
+from src.ingestion.pipeline import ingest_upload
+from src.retrieval.passages import select_passages
+
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
+
+
+def create_student(display_name: str, auth_user_id: str | None = None) -> CreateStudentResponse:
+    student = get_store().create_student(display_name, auth_user_id=auth_user_id)
+    # TODO(Person 7): upsert into profiles when persistence_mode == supabase
+    return CreateStudentResponse(student_id=student.id, display_name=student.display_name)
+
+
+def update_preferences(student_id: str, preferences: LearningPreferences) -> LearningPreferences:
+    store = get_store()
+    if store.get_student(student_id) is None:
+        raise KeyError(f"Unknown student_id: {student_id}")
+    return store.update_preferences(student_id, preferences).preferences
+
+
+async def upload_course(
+    *,
+    student_id: str,
+    course_name: str,
+    syllabus_name: str,
+    syllabus_bytes: bytes,
+    notes_name: str,
+    notes_bytes: bytes,
+) -> UploadCourseResponse:
+    store = get_store()
+    if store.get_student(student_id) is None:
+        raise KeyError(f"Unknown student_id: {student_id}")
+
+    course = store.create_course(student_id, course_name or "Untitled course")
+    material_ids: list[str] = []
+
+    for kind, filename, raw in (
+        ("syllabus", syllabus_name, syllabus_bytes),
+        ("notes", notes_name, notes_bytes),
+    ):
+        material_id = f"mat_{uuid4().hex[:8]}"
+        storage_rel = f"{course.id}/{material_id}_{filename}"
+        storage_path = upload_to_storage(
+            path=storage_rel,
+            data=raw,
+            content_type="text/plain",
+        )
+        # Always keep a local copy for demo/retrieval when Storage is stubbed
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        local_path = UPLOAD_DIR / storage_rel.replace("/", "_")
+        local_path.write_bytes(raw)
+
+        ingested = ingest_upload(
+            material_id=material_id,
+            filename=filename,
+            raw_bytes=raw,
+            storage_path=storage_path,
+        )
+        from src.db.memory_store import MaterialRecord
+
+        course.materials.append(
+            MaterialRecord(
+                id=material_id,
+                course_id=course.id,
+                name=ingested.material_name,
+                text=ingested.text,
+                storage_path=storage_path,
+                kind=kind,
+            )
+        )
+        material_ids.append(material_id)
+
+    return UploadCourseResponse(
+        course_id=course.id,
+        course_name=course.course_name,
+        material_ids=material_ids,
+        message="Materials uploaded. Call POST /courses/{id}/journey to generate the path.",
+    )
+
+
+def generate_journey(course_id: str, student_id: str) -> GenerateJourneyResponse:
+    store = get_store()
+    course = store.get_course(course_id)
+    if course is None:
+        raise KeyError(f"Unknown course_id: {course_id}")
+    if course.student_id != student_id:
+        raise PermissionError("student_id does not own this course")
+
+    syllabus = next((m for m in course.materials if m.kind == "syllabus"), None)
+    notes = next((m for m in course.materials if m.kind == "notes"), None)
+    concepts = curriculum.generate_concepts(
+        course_id,
+        syllabus.text if syllabus else "",
+        notes.text if notes else "",
+    )
+    store.set_concepts(course_id, concepts)
+    progress = store.build_progress(student_id, course_id)
+    nodes = [
+        JourneyNode(
+            concept=c,
+            status=next(m.status for m in progress.concepts if m.concept_id == c.id),
+            mastery_score=next(m.mastery_score for m in progress.concepts if m.concept_id == c.id),
+        )
+        for c in concepts
+    ]
+    journey = LearningJourney(
+        course_id=course_id,
+        course_name=course.course_name,
+        student_id=student_id,
+        nodes=nodes,
+        current_concept_id=course.current_concept_id,
+    )
+    return GenerateJourneyResponse(journey=journey)
+
+
+def get_journey(course_id: str, student_id: str) -> LearningJourney:
+    store = get_store()
+    course = store.get_course(course_id)
+    if course is None:
+        raise KeyError(f"Unknown course_id: {course_id}")
+    progress = store.build_progress(student_id, course_id)
+    nodes = [
+        JourneyNode(
+            concept=c,
+            status=next(m.status for m in progress.concepts if m.concept_id == c.id),
+            mastery_score=next(m.mastery_score for m in progress.concepts if m.concept_id == c.id),
+        )
+        for c in course.concepts
+    ]
+    return LearningJourney(
+        course_id=course_id,
+        course_name=course.course_name,
+        student_id=student_id,
+        nodes=nodes,
+        current_concept_id=course.current_concept_id,
+    )
+
+
+def open_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
+    store = get_store()
+    course = store.get_course(course_id)
+    student = store.get_student(student_id)
+    if course is None or student is None:
+        raise KeyError("Unknown course or student")
+    concept = next((c for c in course.concepts if c.id == concept_id), None)
+    if concept is None:
+        raise KeyError(f"Unknown concept_id: {concept_id}")
+
+    materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
+    passages = select_passages(concept_name=concept.name, materials=materials)
+    return tutor.generate_lesson(
+        course_id=course_id,
+        concept_id=concept.id,
+        concept_name=concept.name,
+        concept_description=concept.description,
+        preferences=student.preferences,
+        source_passages=passages,
+        difficulty="easy",
+    )
+
+
+def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
+    store = get_store()
+    course = store.get_course(payload.course_id)
+    student = store.get_student(payload.student_id)
+    if course is None or student is None:
+        raise KeyError("Unknown course or student")
+    concept = next((c for c in course.concepts if c.id == payload.concept_id), None)
+    if concept is None:
+        raise KeyError(f"Unknown concept_id: {payload.concept_id}")
+
+    materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
+    passages = select_passages(concept_name=concept.name, materials=materials)
+
+    # Stage: Evaluation (one LLM call inside agent)
+    ev = evaluation.evaluate_answer(
+        question_prompt=payload.question_prompt,
+        student_answer=payload.student_answer,
+        concept_name=concept.name,
+        source_passages=passages,
+    )
+
+    # Single persistence path for mastery
+    store.apply_mastery_update(
+        student_id=payload.student_id,
+        concept_id=payload.concept_id,
+        estimated_mastery=ev.estimated_mastery,
+        correct=ev.correct,
+    )
+    progress = store.build_progress(payload.student_id, payload.course_id)
+
+    # Stage: Learning Manager (one LLM call inside agent)
+    next_action = learning_manager.decide_next_action(
+        concepts=course.concepts,
+        current_concept_id=payload.concept_id,
+        evaluation=ev,
+        progress=progress,
+    )
+    course.current_concept_id = next_action.next_concept_id
+
+    attempt = Attempt(
+        id=f"att_{uuid4().hex[:8]}",
+        student_id=payload.student_id,
+        course_id=payload.course_id,
+        concept_id=payload.concept_id,
+        question_id=payload.question_id,
+        question_prompt=payload.question_prompt,
+        student_answer=payload.student_answer,
+        correct=ev.correct,
+        identified_misconception=ev.identified_misconception,
+        created_at=datetime.now(timezone.utc),
+    )
+    store.attempts.append(attempt.model_dump(mode="json"))
+    # TODO(Person 7): insert into attempts + student_concept_mastery via Supabase
+
+    return SubmitAttemptResponse(
+        attempt=attempt,
+        evaluation=ev,
+        next_action=next_action,
+        progress=progress,
+    )
+
+
+def get_progress(student_id: str, course_id: str) -> StudentProgress:
+    store = get_store()
+    if store.get_course(course_id) is None:
+        raise KeyError(f"Unknown course_id: {course_id}")
+    return store.build_progress(student_id, course_id)

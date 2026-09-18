@@ -1,0 +1,3 @@
+Course: Introduction to Graph Algorithms
+Topics: Graph Representation, BFS, DFS, Cycle Detection, Topological Sorting
+Exam: Midterm covering BFS/DFS; Final covering all topics

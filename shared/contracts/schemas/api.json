@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://c1-agentic.local/schemas/api.json",
+  "title": "UploadAndJourneyAPIs",
+  "description": "Request/response shapes for upload and journey generation",
+  "$defs": {
+    "UploadCourseResponse": {
+      "type": "object",
+      "required": ["course_id", "course_name", "material_ids", "message"],
+      "properties": {
+        "course_id": { "type": "string" },
+        "course_name": { "type": "string" },
+        "material_ids": { "type": "array", "items": { "type": "string" } },
+        "message": { "type": "string" }
+      }
+    },
+    "GenerateJourneyRequest": {
+      "type": "object",
+      "required": ["student_id"],
+      "properties": {
+        "student_id": { "type": "string" }
+      }
+    },
+    "SubmitAttemptRequest": {
+      "type": "object",
+      "required": [
+        "student_id",
+        "course_id",
+        "concept_id",
+        "question_id",
+        "question_prompt",
+        "student_answer"
+      ],
+      "properties": {
+        "student_id": { "type": "string" },
+        "course_id": { "type": "string" },
+        "concept_id": { "type": "string" },
+        "question_id": { "type": "string" },
+        "question_prompt": { "type": "string" },
+        "student_answer": { "type": "string" }
+      }
+    },
+    "SubmitAttemptResponse": {
+      "type": "object",
+      "required": ["attempt", "evaluation", "next_action", "progress"],
+      "properties": {
+        "attempt": { "$ref": "attempt.json" },
+        "evaluation": { "$ref": "evaluation.json" },
+        "next_action": { "$ref": "next-action.json" },
+        "progress": { "$ref": "student-progress.json" }
+      }
+    }
+  }
+}

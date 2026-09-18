@@ -1,0 +1,21 @@
+Chapter notes — Graph Algorithms
+
+Graph Representation
+A graph G = (V, E) can be stored as an adjacency list or adjacency matrix.
+Adjacency lists are efficient for sparse graphs.
+
+Breadth-First Search
+BFS visits vertices in order of increasing distance from the source.
+BFS uses a FIFO queue to expand the frontier one layer at a time.
+
+Depth-First Search
+DFS explores as far as possible along each branch before backtracking.
+DFS is commonly implemented with a stack or recursion.
+
+Cycle Detection
+In undirected graphs, a back edge to a visited non-parent node indicates a cycle.
+In directed graphs, a back edge to a node in the recursion stack indicates a cycle.
+
+Topological Sorting
+A topological order exists only for directed acyclic graphs (DAGs).
+Kahn's algorithm repeatedly removes nodes with indegree zero.

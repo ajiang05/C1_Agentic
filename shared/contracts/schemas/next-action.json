@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://c1-agentic.local/schemas/next-action.json",
+  "title": "NextAction",
+  "type": "object",
+  "required": ["action", "reason", "next_concept_id", "suggested_difficulty"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "advance",
+        "retry_same",
+        "remediate",
+        "review_prerequisite",
+        "easier_question",
+        "harder_question"
+      ]
+    },
+    "reason": { "type": "string" },
+    "next_concept_id": { "type": "string" },
+    "suggested_difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] }
+  },
+  "additionalProperties": false
+}
