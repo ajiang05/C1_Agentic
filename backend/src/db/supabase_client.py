@@ -81,3 +81,92 @@ def upload_to_storage(
         file_options={"content-type": content_type, "upsert": "true"},
     )
     return path
+
+
+def insert_chunks(material_id: str, chunks: list[dict]):
+    """
+    Insert chunks and their embeddings into Supabase pgvector table `document_chunks`.
+    Assumes table schema: id, material_id, chapter, location, content, embedding
+    """
+    if not supabase_configured():
+        return
+        
+    client = get_supabase()
+    
+    # We need openai to compute embeddings
+    try:
+        from openai import OpenAI
+        openai_client = OpenAI()
+    except Exception:
+        print("OpenAI client missing, cannot insert vector chunks.")
+        return
+        
+    records = []
+    for chunk in chunks:
+        text = chunk.get("text", "")
+        if not text:
+            continue
+            
+        try:
+            res = openai_client.embeddings.create(
+                input=[text],
+                model="text-embedding-3-small"
+            )
+            emb = res.data[0].embedding
+        except Exception as e:
+            print(f"Failed to embed chunk: {e}")
+            continue
+            
+        records.append({
+            "id": chunk.get("chunk_id"),
+            "material_id": material_id,
+            "chapter": chunk.get("chapter", "General"),
+            "location": chunk.get("location", "unknown"),
+            "content": text,
+            "embedding": emb
+        })
+        
+    if records:
+        # Batch insert into Supabase
+        client.table("document_chunks").upsert(records).execute()
+
+
+def search_chunks(query: str, material_ids: list[str], limit: int = 3, chapter_filter: str | None = None) -> list[dict]:
+    """
+    Search Supabase pgvector `document_chunks` table using match_chunks RPC.
+    Assumes an RPC function `match_chunks(query_embedding, match_threshold, match_count, filter_materials, filter_chapter)`
+    """
+    if not supabase_configured():
+        return []
+        
+    client = get_supabase()
+    
+    try:
+        from openai import OpenAI
+        openai_client = OpenAI()
+        res = openai_client.embeddings.create(
+            input=[query],
+            model="text-embedding-3-small"
+        )
+        query_emb = res.data[0].embedding
+    except Exception as e:
+        print(f"Failed to embed query: {e}")
+        return []
+        
+    # Call the Postgres function (RPC)
+    try:
+        response = client.rpc(
+            "match_chunks", 
+            {
+                "query_embedding": query_emb,
+                "match_threshold": 0.0, # return all based on limit
+                "match_count": limit,
+                "filter_materials": material_ids,
+                "filter_chapter": chapter_filter
+            }
+        ).execute()
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Supabase RPC match_chunks failed: {e}")
+        return []
+
