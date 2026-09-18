@@ -61,7 +61,11 @@ async def run_test():
         prereqs = [p for p in c.prerequisite_ids]
         print(f"   - {c.name} (Prereqs: {prereqs})")
         
-    # 3. Test Vector Retrieval from Supabase
+    # 3. Wait for background thread to finish Supabase inserts
+    print("\n⏳ Waiting 10 seconds for background thread to finish embedding inserts to Supabase...")
+    await asyncio.sleep(10)
+        
+    # 4. Test Vector Retrieval from Supabase
     print("\n🔍 Testing Supabase pgvector Retrieval for 'Dictionaries'...")
     materials = [m.__dict__ for m in course.materials]
     

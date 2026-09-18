@@ -133,7 +133,7 @@ function useWorkspace() {
     return () => window.removeEventListener("hashchange", change);
   }, []);
   useEffect(() => {
-    document.title = `${{ preferences: "Your preferences", upload: "Course materials", journey: "Learning journey", lesson: "Study lesson", progress: "Your knowledge" }[page]} · CalmPath`;
+    document.title = `${{ preferences: "Your preferences", upload: "Course materials", journey: "Learning journey", lesson: "Study lesson", progress: "Your knowledge" }[page]} · Edaptify`;
     window.scrollTo(0, 0);
     document.querySelector<HTMLElement>("#main-content")?.focus();
   }, [page]);
@@ -193,7 +193,7 @@ function useWorkspace() {
     );
     go("journey");
   };
-  const upload = async (name: string, syllabus: File, notes: File) =>
+  const upload = async (name: string, syllabus: File, notes: File | null) =>
     run("Preparing your learning journey", async () => {
       let studentId = state.mode === "backend" ? state.studentId : null;
       if (!studentId) {

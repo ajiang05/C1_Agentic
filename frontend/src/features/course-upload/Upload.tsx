@@ -6,24 +6,26 @@ function FileCard({
   kind,
   file,
   onChange,
+  optional,
 }: {
   kind: "syllabus" | "notes";
   file: File | null;
   onChange: (f: File | null) => void;
+  optional?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const accept = (f?: File) => {
     if (!f) return;
-    if (!/\.(txt|md)$/i.test(f.name)) {
+    if (!/\.(txt|md|pdf)$/i.test(f.name)) {
       setError(
-        "Please choose a .txt or .md file. PDF support is not available yet.",
+        "Please choose a .txt, .md, or .pdf file.",
       );
       return;
     }
-    if (f.size === 0 || f.size > 10 * 1024 * 1024) {
-      setError("Choose a nonempty file smaller than 10 MB.");
+    if (f.size === 0 || f.size > 100 * 1024 * 1024) {
+      setError("Choose a nonempty file smaller than 100 MB.");
       return;
     }
     setError("");
@@ -38,7 +40,9 @@ function FileCard({
             ? "Syllabus & Schedule"
             : "Course Materials & Notes"}
         </h2>
-        <Badge tone={kind === "syllabus" ? "sand" : "sage"}>Required</Badge>
+        <Badge tone={optional ? "neutral" : (kind === "syllabus" ? "sand" : "sage")}>
+          {optional ? "Optional" : "Required"}
+        </Badge>
       </div>
       <p>
         {kind === "syllabus"
@@ -61,7 +65,7 @@ function FileCard({
         <input
           ref={input}
           type="file"
-          accept=".txt,.md,text/plain,text/markdown"
+          accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
           aria-label={
             kind === "syllabus" ? "Upload syllabus" : "Upload course notes"
           }
@@ -123,7 +127,7 @@ function FileCard({
             >
               Choose {kind === "syllabus" ? "syllabus" : "notes"}
             </button>
-            <small>TXT or Markdown · up to 10 MB</small>
+            <small>TXT, Markdown, or PDF · up to 100 MB</small>
           </>
         )}
       </div>
@@ -189,7 +193,7 @@ export function Upload() {
       </div>
       <div className="upload-grid">
         <FileCard kind="syllabus" file={syllabus} onChange={setSyllabus} />
-        <FileCard kind="notes" file={notes} onChange={setNotes} />
+        <FileCard kind="notes" file={notes} onChange={setNotes} optional />
       </div>
       <section className="verification-card panel">
         <div className="round-icon filled">
@@ -222,9 +226,9 @@ export function Upload() {
         </p>
         <button
           className="button primary"
-          disabled={!syllabus || !notes || !name.trim() || !!busy}
+          disabled={!syllabus || !name.trim() || !!busy}
           onClick={() => {
-            if (syllabus && notes) void upload(name.trim(), syllabus, notes);
+            if (syllabus) void upload(name.trim(), syllabus, notes);
           }}
         >
           {busy || "Generate learning journey"}

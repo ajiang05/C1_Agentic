@@ -20,6 +20,7 @@ from src.api.schemas import (
     HumanEvaluationResponse,
     UpdatePreferencesRequest,
     UploadCourseResponse,
+    GetStudentCoursesResponse,
 )
 from src.config import get_settings
 from src.db.supabase_client import verify_access_token
@@ -57,12 +58,20 @@ def put_preferences(student_id: str, body: UpdatePreferencesRequest) -> Learning
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/students/{student_id}/courses", response_model=GetStudentCoursesResponse)
+def get_courses(student_id: str) -> GetStudentCoursesResponse:
+    try:
+        return learning.get_student_courses(student_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/courses/upload", response_model=UploadCourseResponse)
 async def upload_course(
     student_id: str = Form(...),
     course_name: str = Form("Untitled course"),
     syllabus: UploadFile = File(...),
-    notes: UploadFile = File(...),
+    notes: UploadFile | None = File(default=None),
 ) -> UploadCourseResponse:
     """Upload syllabus + notes. Files go to Supabase Storage when configured."""
     try:
@@ -71,8 +80,8 @@ async def upload_course(
             course_name=course_name,
             syllabus_name=syllabus.filename or "syllabus.txt",
             syllabus_bytes=await syllabus.read(),
-            notes_name=notes.filename or "notes.txt",
-            notes_bytes=await notes.read(),
+            notes_name=notes.filename if notes and notes.filename else "notes.txt",
+            notes_bytes=await notes.read() if notes else b"",
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

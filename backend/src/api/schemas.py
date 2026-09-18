@@ -181,6 +181,15 @@ class UpdatePreferencesRequest(BaseModel):
     preferences: LearningPreferences
 
 
+class CourseSummary(BaseModel):
+    id: str
+    name: str
+
+
+class GetStudentCoursesResponse(BaseModel):
+    courses: list[CourseSummary]
+
+
 class UploadCourseResponse(BaseModel):
     course_id: str
     course_name: str
