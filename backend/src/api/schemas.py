@@ -34,11 +34,18 @@ TeachingFormat = Literal[
 Understanding = Literal[
     "strong", "partial", "misconception", "missing_prerequisite", "guessing"
 ]
+EvaluationOutcome = Literal[
+    "correct", "partially_correct", "incorrect", "no_attempt"
+]
 NextActionType = Literal[
     "advance",
+    "hint",
+    "retry",
+    "reteach",
+    "review_prerequisite",
+    # Legacy aliases kept for older clients / stubs
     "retry_same",
     "remediate",
-    "review_prerequisite",
     "easier_question",
     "harder_question",
 ]
@@ -68,13 +75,32 @@ class Lesson(BaseModel):
     source_references: list[SourceReference]
 
 
+class Misconception(BaseModel):
+    code: str
+    description: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    related_prerequisite_id: str | None = None
+
+
 class Evaluation(BaseModel):
+    """Grading result. Compat fields (`correct`, `understanding`, …) stay populated for FE/API."""
+
     correct: bool
     understanding: Understanding
     feedback: str
     identified_misconception: str | None = None
-    estimated_mastery: float
+    estimated_mastery: float = Field(ge=0.0, le=1.0)
     source_references: list[SourceReference]
+    # Person 6 extensions (additive)
+    outcome: EvaluationOutcome = "incorrect"
+    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    strengths: list[str] = Field(default_factory=list)
+    missing_elements: list[str] = Field(default_factory=list)
+    misconceptions: list[Misconception] = Field(default_factory=list)
+    mastery_delta: float = 0.0
+    rationale: str = ""
 
 
 class NextAction(BaseModel):

@@ -23,7 +23,32 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "source-reference.json" }
-    }
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["correct", "partially_correct", "incorrect", "no_attempt"]
+    },
+    "score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "strengths": { "type": "array", "items": { "type": "string" } },
+    "missing_elements": { "type": "array", "items": { "type": "string" } },
+    "misconceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "description", "confidence", "evidence"],
+        "properties": {
+          "code": { "type": "string" },
+          "description": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evidence": { "type": "string" },
+          "related_prerequisite_id": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "mastery_delta": { "type": "number" },
+    "rationale": { "type": "string" }
   },
   "additionalProperties": false
 }
