@@ -14,6 +14,7 @@ import type {
   UploadCourseResponse,
   HumanEvaluationRequest,
   HumanEvaluationResponse,
+  GetStudentCoursesResponse,
 } from "@contracts/types";
 
 const API_BASE =
@@ -76,13 +77,13 @@ export const api = {
     studentId: string;
     courseName: string;
     syllabus: File;
-    notes: File;
+    notes?: File | null;
   }): Promise<UploadCourseResponse> => {
     const form = new FormData();
     form.append("student_id", params.studentId);
     form.append("course_name", params.courseName);
     form.append("syllabus", params.syllabus);
-    form.append("notes", params.notes);
+    if (params.notes) form.append("notes", params.notes);
     return request<UploadCourseResponse>("/courses/upload", {
       method: "POST",
       body: form,
@@ -127,10 +128,25 @@ export const api = {
       `/students/${studentId}/progress?course_id=${encodeURIComponent(courseId)}`,
     ),
 
-  submitHumanEvaluation: (body: HumanEvaluationRequest) =>
-    request<HumanEvaluationResponse>("/attempts/human-eval", {
+  submitHumanEvaluation: async (body: HumanEvaluationRequest): Promise<SubmitAttemptResponse> => {
+    const res = await request<HumanEvaluationResponse>("/attempts/human-eval", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    });
+    return {
+      ...res,
+      evaluation: {
+        correct: body.correct,
+        feedback: body.feedback,
+        identified_misconception: body.misconception,
+        estimated_mastery: 0,
+        mastery_delta: 0,
+        source_references: []
+      }
+    } as unknown as SubmitAttemptResponse;
+  },
+
+  getStudentCourses: (studentId: string) =>
+    request<GetStudentCoursesResponse>(`/students/${studentId}/courses`),
 };

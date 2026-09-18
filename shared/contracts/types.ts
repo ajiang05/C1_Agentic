@@ -175,6 +175,15 @@ export interface UpdatePreferencesRequest {
   preferences: LearningPreferences;
 }
 
+export interface CourseSummary {
+  id: string;
+  name: string;
+}
+
+export interface GetStudentCoursesResponse {
+  courses: CourseSummary[];
+}
+
 export interface UploadCourseResponse {
   course_id: string;
   course_name: string;

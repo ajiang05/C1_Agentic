@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "./lib/api";
+import type { CourseSummary } from "../../shared/contracts/types";
 import { WorkspaceProvider, useStudy, type Page } from "./lib/store";
 import { Icon } from "./components/Icon";
 import { Modal } from "./components/Shared";
@@ -35,6 +37,16 @@ function Shell() {
     sand: "Warm Sand",
     slate: "Muted Slate",
   }[state.sensory.theme];
+
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  useEffect(() => {
+    if (state.studentId) {
+      api.getStudentCourses(state.studentId)
+        .then(res => setCourses(res.courses))
+        .catch(console.error);
+    }
+  }, [state.studentId, state.courseId]); // re-fetch when courseId changes (i.e. upload)
+
   return (
     <>
       <a
@@ -91,19 +103,46 @@ function Shell() {
         <button
           className="brand"
           onClick={() => go(state.journey ? "journey" : "preferences")}
-          aria-label="CalmPath home"
+          aria-label="Edaptify home"
         >
           <img src="/calmpath.svg" width="37" height="37" alt="" />
           <span>
-            <strong>CalmPath</strong>
+            <strong>Edaptify</strong>
             <small>Adaptive Study Journey</small>
           </span>
         </button>
         <div className="course-pill">
           <Icon name="book" size={17} />
-          <span>
-            {state.journey?.course_name || "Your own path to understanding"}
-          </span>
+          {courses.length > 0 ? (
+            <select
+              value={state.courseId}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) patch({ courseId: val, page: "journey" });
+              }}
+              aria-label="Select textbook"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "inherit",
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="" disabled>Select a textbook...</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>
+              {state.journey?.course_name || "Your own path to understanding"}
+            </span>
+          )}
         </div>
         <nav aria-label="Learning workspace">
           {tabs.map(([id, label], i) => (
@@ -201,7 +240,7 @@ function Shell() {
       <footer className="app-footer">
         <span>
           <Icon name="shield" size={19} />
-          CalmPath Study Environment <b>·</b> A grounded, gentle pace
+          Edaptify Study Environment <b>·</b> A grounded, gentle pace
         </span>
         <div>
           <button 

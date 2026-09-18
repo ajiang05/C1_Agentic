@@ -59,6 +59,16 @@ export function Journey() {
               <small>Pick up right where you left off</small>
             </span>
           </div>
+          {review && (
+            <button
+              className="button"
+              style={{ background: "var(--warm-6)", color: "white" }}
+              disabled={!!busy}
+              onClick={() => void openLesson(review.concept_id)}
+            >
+              Re-quiz Missed Topics <Icon name="play" />
+            </button>
+          )}
           <button
             className="button primary"
             disabled={!!busy}

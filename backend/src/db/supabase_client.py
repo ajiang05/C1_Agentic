@@ -103,8 +103,8 @@ def insert_chunks(material_id: str, chunks: list[dict]):
         
     records = []
     
-    # Process chunks in batches of 100 to drastically speed up API calls
-    batch_size = 100
+    # Process chunks in larger batches for OpenAI (up to 2048 allowed, we use 500)
+    batch_size = 500
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
         texts = [c.get("text", "") for c in batch]
@@ -128,8 +128,15 @@ def insert_chunks(material_id: str, chunks: list[dict]):
             continue
             
     if records:
-        # Batch insert into Supabase
-        client.table("document_chunks").upsert(records).execute()
+        # Batch insert into Supabase to avoid PostgREST payload limits
+        db_batch_size = 100
+        for i in range(0, len(records), db_batch_size):
+            db_batch = records[i:i + db_batch_size]
+            try:
+                client.table("document_chunks").upsert(db_batch).execute()
+            except Exception as e:
+                print(f"Failed to upsert db batch: {e}")
+                continue
 
 
 def search_chunks(query: str, material_ids: list[str], limit: int = 3, chapter_filter: str | None = None) -> list[dict]:

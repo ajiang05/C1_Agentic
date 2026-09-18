@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import os
+import pickle
+import threading
 from typing import Any
 from uuid import uuid4
 
@@ -91,9 +94,38 @@ class MemoryStore:
         self.mastery: dict[tuple[str, str], MasteryRecord] = {}
         self.attempts: list[dict[str, Any]] = []
         self.question_keys: dict[str, QuestionKey] = {}
+        self._lock = threading.Lock()
+
+    def save(self) -> None:
+        with self._lock:
+            try:
+                with open("local_db.pkl", "wb") as f:
+                    pickle.dump({
+                        "students": self.students,
+                        "courses": self.courses,
+                        "mastery": self.mastery,
+                        "attempts": self.attempts,
+                        "question_keys": self.question_keys
+                    }, f)
+            except Exception as e:
+                print(f"Error saving to db: {e}")
+
+    def load(self) -> None:
+        if os.path.exists("local_db.pkl"):
+            try:
+                with open("local_db.pkl", "rb") as f:
+                    data = pickle.load(f)
+                    self.students = data.get("students", {})
+                    self.courses = data.get("courses", {})
+                    self.mastery = data.get("mastery", {})
+                    self.attempts = data.get("attempts", [])
+                    self.question_keys = data.get("question_keys", {})
+            except Exception as e:
+                print(f"Error loading from db: {e}")
 
     def save_question_key(self, key: QuestionKey) -> None:
         self.question_keys[key.question_id] = key
+        self.save()
 
     def get_question_key(self, question_id: str) -> QuestionKey | None:
         return self.question_keys.get(question_id)
@@ -101,6 +133,7 @@ class MemoryStore:
     def set_pending_teaching(self, course_id: str, pending: PendingTeaching) -> None:
         course = self.courses[course_id]
         course.pending_teaching = pending
+        self.save()
 
     def create_student(self, display_name: str, auth_user_id: str | None = None) -> StudentRecord:
         student = StudentRecord(
@@ -109,6 +142,7 @@ class MemoryStore:
             auth_user_id=auth_user_id,
         )
         self.students[student.id] = student
+        self.save()
         return student
 
     def get_student(self, student_id: str) -> StudentRecord | None:
@@ -117,6 +151,7 @@ class MemoryStore:
     def update_preferences(self, student_id: str, preferences: LearningPreferences) -> StudentRecord:
         student = self.students[student_id]
         student.preferences = preferences
+        self.save()
         return student
 
     def create_course(self, student_id: str, course_name: str) -> CourseRecord:
@@ -126,6 +161,7 @@ class MemoryStore:
             course_name=course_name,
         )
         self.courses[course.id] = course
+        self.save()
         return course
 
     def get_course(self, course_id: str) -> CourseRecord | None:
@@ -143,6 +179,7 @@ class MemoryStore:
                         student_id=course.student_id,
                         concept_id=c.id,
                     )
+        self.save()
 
     def apply_mastery_update(
         self,
@@ -162,6 +199,7 @@ class MemoryStore:
         rec.mastery_score = round(min(1.0, 0.4 * rec.mastery_score + 0.6 * estimated_mastery), 3)
         rec.last_reviewed = _now()
         self.mastery[key] = rec
+        self.save()
         return rec
 
     def build_progress(self, student_id: str, course_id: str) -> StudentProgress:
@@ -217,6 +255,9 @@ def get_store() -> MemoryStore:
     global _STORE
     if _STORE is None:
         _STORE = MemoryStore()
+        _STORE.load()
+        if not _STORE.students:
+            _STORE.create_student("Hackathon Judge", "default_user_123")
     return _STORE
 
 

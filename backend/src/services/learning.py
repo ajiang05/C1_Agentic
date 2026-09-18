@@ -17,6 +17,8 @@ from src.api.schemas import (
     CreateStudentResponse,
     Difficulty,
     GenerateJourneyResponse,
+    GetStudentCoursesResponse,
+    CourseSummary,
     JourneyNode,
     LearningJourney,
     LearningPreferences,
@@ -67,10 +69,11 @@ async def upload_course(
     create_course(course.id, student_id, course.course_name)
     material_ids: list[str] = []
 
-    for kind, filename, raw in (
-        ("syllabus", syllabus_name, syllabus_bytes),
-        ("notes", notes_name, notes_bytes),
-    ):
+    materials_to_process = [("syllabus", syllabus_name, syllabus_bytes)]
+    if notes_bytes:
+        materials_to_process.append(("notes", notes_name, notes_bytes))
+
+    for kind, filename, raw in materials_to_process:
         material_id = str(uuid4())
         storage_rel = f"{course.id}/{material_id}_{filename}"
         storage_path = upload_to_storage(
@@ -104,8 +107,12 @@ async def upload_course(
         )
         
         # Async insert to pgvector
+        import threading
         from src.db.supabase_client import insert_chunks
-        insert_chunks(material_id, [c.__dict__ for c in ingested.chunks])
+        threading.Thread(
+            target=insert_chunks,
+            args=(material_id, [c.__dict__ for c in ingested.chunks])
+        ).start()
         
         create_document(material_id, course.id, student_id, filename, kind)
         
@@ -154,6 +161,19 @@ def generate_journey(course_id: str, student_id: str) -> GenerateJourneyResponse
         current_concept_id=course.current_concept_id,
     )
     return GenerateJourneyResponse(journey=journey)
+
+
+def get_student_courses(student_id: str) -> GetStudentCoursesResponse:
+    store = get_store()
+    if store.get_student(student_id) is None:
+        raise KeyError(f"Unknown student_id: {student_id}")
+    
+    courses = [
+        CourseSummary(id=c.id, name=c.course_name)
+        for c in store.courses.values()
+        if c.student_id == student_id
+    ]
+    return GetStudentCoursesResponse(courses=courses)
 
 
 def get_journey(course_id: str, student_id: str) -> LearningJourney:

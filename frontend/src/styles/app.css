@@ -12,16 +12,16 @@
   --sand: #e6e1d5;
   --ink: #2d312e;
   --muted: #5b615c;
-  --primary: #42624d;
-  --primary-hover: #34513e;
-  --on-primary: #fff8f2;
-  --sage: #dce6df;
-  --line: #dcded5;
-  --warm: #805426;
-  --warm-bg: #f5eadb;
-  --white: #fffcf7;
-  --focus: #6d8877;
-  --danger: #933c30;
+  --primary: #7e57c2;
+  --primary-hover: #5e35b1;
+  --on-primary: #ffffff;
+  --sage: #ede7f6;
+  --line: #d1c4e9;
+  --warm: #3f51b5;
+  --warm-bg: #e8eaf6;
+  --white: #ffffff;
+  --focus: #e91e63;
+  --danger: #d32f2f;
 }
 :root[data-theme="sand"] {
   --canvas: #f0e9dc;
