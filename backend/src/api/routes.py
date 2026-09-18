@@ -95,9 +95,23 @@ def get_journey(course_id: str, student_id: str) -> LearningJourney:
 
 
 @router.get("/courses/{course_id}/lessons/{concept_id}", response_model=Lesson)
-def get_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
+def get_lesson(
+    course_id: str,
+    concept_id: str,
+    student_id: str,
+    teaching_action: str | None = None,
+    difficulty: str | None = None,
+) -> Lesson:
+    """Tutor stage → grounded lesson. Optional teaching_action / difficulty override pending LM decision."""
+    diff = difficulty if difficulty in {"easy", "medium", "hard"} else None
     try:
-        return learning.open_lesson(course_id, concept_id, student_id)
+        return learning.open_lesson(
+            course_id,
+            concept_id,
+            student_id,
+            teaching_action=teaching_action,
+            difficulty=diff,  # type: ignore[arg-type]
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

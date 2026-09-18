@@ -75,10 +75,19 @@ export const api = {
       `/courses/${courseId}/journey?student_id=${encodeURIComponent(studentId)}`,
     ),
 
-  getLesson: (courseId: string, conceptId: string, studentId: string) =>
-    request<Lesson>(
-      `/courses/${courseId}/lessons/${conceptId}?student_id=${encodeURIComponent(studentId)}`,
-    ),
+  getLesson: (
+    courseId: string,
+    conceptId: string,
+    studentId: string,
+    opts?: { teachingAction?: string; difficulty?: string },
+  ) => {
+    const params = new URLSearchParams({ student_id: studentId });
+    if (opts?.teachingAction) params.set("teaching_action", opts.teachingAction);
+    if (opts?.difficulty) params.set("difficulty", opts.difficulty);
+    return request<Lesson>(
+      `/courses/${courseId}/lessons/${conceptId}?${params.toString()}`,
+    );
+  },
 
   submitAttempt: (body: SubmitAttemptRequest) =>
     request<SubmitAttemptResponse>("/attempts", {

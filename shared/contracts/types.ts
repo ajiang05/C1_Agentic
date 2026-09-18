@@ -45,6 +45,10 @@ export interface Lesson {
     | "step_by_step";
   question: LessonQuestion;
   source_references: SourceReference[];
+  /** Person 5 — pedagogical action taken for this lesson turn */
+  tutor_action?: string | null;
+  guidance?: string | null;
+  next_step?: string | null;
 }
 
 export type Understanding =

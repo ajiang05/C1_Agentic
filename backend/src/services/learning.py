@@ -15,17 +15,19 @@ from src.agents import curriculum, evaluation, learning_manager, tutor
 from src.api.schemas import (
     Attempt,
     CreateStudentResponse,
+    Difficulty,
     GenerateJourneyResponse,
     JourneyNode,
     LearningJourney,
     LearningPreferences,
     Lesson,
+    NextActionType,
     StudentProgress,
     SubmitAttemptRequest,
     SubmitAttemptResponse,
     UploadCourseResponse,
 )
-from src.db.memory_store import get_store
+from src.db.memory_store import PendingTeaching, QuestionKey, get_store
 from src.db.supabase_client import upload_to_storage
 from src.ingestion.pipeline import ingest_upload
 from src.retrieval.passages import select_passages
@@ -164,7 +166,20 @@ def get_journey(course_id: str, student_id: str) -> LearningJourney:
     )
 
 
-def open_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
+def open_lesson(
+    course_id: str,
+    concept_id: str,
+    student_id: str,
+    *,
+    teaching_action: NextActionType | str | None = None,
+    difficulty: Difficulty | None = None,
+) -> Lesson:
+    """
+    Tutor stage: grounded lesson + one practice question (one LLM call).
+
+    Uses Learning Manager pending_teaching when present so adaptive actions
+    (hint / reteach / prerequisite review) shape the next lesson.
+    """
     store = get_store()
     course = store.get_course(course_id)
     student = store.get_student(student_id)
@@ -174,17 +189,62 @@ def open_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
     if concept is None:
         raise KeyError(f"Unknown concept_id: {concept_id}")
 
+    pending = course.pending_teaching
+    action = teaching_action or (pending.action if pending else None) or "reteach"
+    diff: Difficulty = difficulty or (  # type: ignore[assignment]
+        pending.difficulty if pending and pending.difficulty in {"easy", "medium", "hard"} else "easy"
+    )
+    misconception = pending.misconception if pending else None
+    reason = pending.reason if pending else ""
+
+    mastery_rec = store.mastery.get((student_id, concept_id))
+    mastery_score = mastery_rec.mastery_score if mastery_rec else 0.0
+    prior_raw = [
+        a
+        for a in store.attempts
+        if a.get("student_id") == student_id and a.get("concept_id") == concept_id
+    ]
+    recent_outcomes = [
+        "correct" if a.get("correct") else "incorrect" for a in prior_raw[-5:]
+    ]
+    # Light frustration signal: trailing misses without a recent success
+    frustrated = len(recent_outcomes) >= 2 and all(
+        o == "incorrect" for o in recent_outcomes[-2:]
+    )
+
+    prereq_names = {
+        c.id: c.name for c in course.concepts if c.id in concept.prerequisite_ids
+    }
     materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
     passages = select_passages(concept_name=concept.name, materials=materials)
-    return tutor.generate_lesson(
+
+    result = tutor.generate_lesson(
         course_id=course_id,
         concept_id=concept.id,
         concept_name=concept.name,
         concept_description=concept.description,
         preferences=student.preferences,
         source_passages=passages,
-        difficulty="easy",
+        difficulty=diff,
+        teaching_action=action,
+        teaching_reason=reason,
+        prerequisite_ids=list(concept.prerequisite_ids),
+        prerequisite_names=prereq_names,
+        misconception=misconception,
+        recent_outcomes=recent_outcomes,
+        mastery_score=mastery_score,
+        frustrated=frustrated,
     )
+    store.save_question_key(
+        QuestionKey(
+            question_id=result.lesson.question.id,
+            expected_answer=result.expected_answer,
+            rubric=result.rubric,
+            concept_id=concept.id,
+            course_id=course_id,
+        )
+    )
+    return result.lesson
 
 
 def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
@@ -224,6 +284,12 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
         c.id: c.name for c in course.concepts if c.id in concept.prerequisite_ids
     }
 
+    q_key = store.get_question_key(payload.question_id)
+    pending = course.pending_teaching
+    current_difficulty: Difficulty = "easy"
+    if pending and pending.difficulty in {"easy", "medium", "hard"}:
+        current_difficulty = pending.difficulty  # type: ignore[assignment]
+
     # Stage: Evaluation (one LLM call inside agent when enabled)
     ev = evaluation.evaluate_answer(
         question_prompt=payload.question_prompt,
@@ -234,7 +300,9 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
         prerequisite_ids=list(concept.prerequisite_ids),
         prerequisite_names=prereq_names,
         source_passages=passages,
-        current_difficulty="easy",
+        question_id=payload.question_id,
+        expected_answer=q_key.expected_answer if q_key else None,
+        current_difficulty=current_difficulty,
         current_mastery=current_mastery,
         prior_attempts=prior_attempts,
     )
@@ -247,7 +315,7 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
         current_concept_id=payload.concept_id,
         evaluation=ev,
         progress=progress_before,
-        current_difficulty="easy",
+        current_difficulty=current_difficulty,
         current_mastery=current_mastery,
         prior_outcomes=prior_outcomes,
     )
@@ -268,6 +336,16 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
     )
     progress = store.build_progress(payload.student_id, payload.course_id)
     course.current_concept_id = next_action.next_concept_id
+    store.set_pending_teaching(
+        payload.course_id,
+        PendingTeaching(
+            action=next_action.action,
+            reason=next_action.reason,
+            difficulty=next_action.suggested_difficulty,
+            misconception=ev.identified_misconception,
+            concept_id=next_action.next_concept_id,
+        ),
+    )
 
     attempt = Attempt(
         id=f"att_{uuid4().hex[:8]}",
