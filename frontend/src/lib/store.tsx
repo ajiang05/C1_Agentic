@@ -23,7 +23,14 @@ import {
   sampleLesson,
   evaluateSample,
 } from "./demo";
-export type Page = "preferences" | "upload" | "journey" | "lesson" | "progress";
+export type Page =
+  | "welcome"
+  | "preferences"
+  | "upload"
+  | "journey"
+  | "lesson"
+  | "progress";
+
 export type Sensory = {
   theme: "day" | "sand" | "slate";
   motion: boolean;
@@ -77,10 +84,13 @@ const initial: State = {
   citations: true,
   evaluatorMode: false,
 };
-const KEY = "calmpath.workspace.v1";
+const KEY = "edaptify.workspace.v1";
+const LEGACY_KEY = "calmpath.workspace.v1";
 function readState(): State {
   try {
-    const s = JSON.parse(localStorage.getItem(KEY) || "null");
+    const raw =
+      localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || "null";
+    const s = JSON.parse(raw);
     if (
       s?.version === 1 &&
       s.preferences &&
@@ -96,12 +106,18 @@ function readState(): State {
 }
 function readPage(): Page {
   const key = window.location.hash.slice(1);
-  return ["preferences", "upload", "journey", "lesson", "progress"].includes(
-    key,
-  )
+  return [
+    "welcome",
+    "preferences",
+    "upload",
+    "journey",
+    "lesson",
+    "progress",
+  ].includes(key)
     ? (key as Page)
-    : "preferences";
+    : "welcome";
 }
+
 function useWorkspace() {
   const [state, setState] = useState<State>(readState);
   const [page, setPage] = useState<Page>(readPage);
@@ -133,7 +149,16 @@ function useWorkspace() {
     return () => window.removeEventListener("hashchange", change);
   }, []);
   useEffect(() => {
-    document.title = `${{ preferences: "Your preferences", upload: "Course materials", journey: "Learning journey", lesson: "Study lesson", progress: "Your knowledge" }[page]} · CalmPath`;
+    document.title = `${
+      {
+        welcome: "Welcome",
+        preferences: "Your preferences",
+        upload: "Course materials",
+        journey: "Learning journey",
+        lesson: "Study lesson",
+        progress: "Your knowledge",
+      }[page]
+    } · edaptify`;
     window.scrollTo(0, 0);
     document.querySelector<HTMLElement>("#main-content")?.focus();
   }, [page]);
@@ -193,7 +218,11 @@ function useWorkspace() {
     );
     go("journey");
   };
-  const upload = async (name: string, syllabus: File, notes: File) =>
+  const upload = async (
+    name: string,
+    syllabus: File,
+    notes?: File | null,
+  ) =>
     run("Preparing your learning journey", async () => {
       let studentId = state.mode === "backend" ? state.studentId : null;
       if (!studentId) {
@@ -214,7 +243,7 @@ function useWorkspace() {
         studentId,
         courseName: name,
         syllabus,
-        notes,
+        notes: notes ?? null,
       });
       const { journey } = await api.generateJourney(
         course.course_id,

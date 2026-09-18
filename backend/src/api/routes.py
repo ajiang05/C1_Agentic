@@ -62,17 +62,19 @@ async def upload_course(
     student_id: str = Form(...),
     course_name: str = Form("Untitled course"),
     syllabus: UploadFile = File(...),
-    notes: UploadFile = File(...),
+    notes: UploadFile | None = File(None),
 ) -> UploadCourseResponse:
-    """Upload syllabus + notes. Files go to Supabase Storage when configured."""
+    """Upload syllabus and optional notes. Files go to Supabase Storage when configured."""
     try:
+        notes_name = notes.filename if notes and notes.filename else None
+        notes_bytes = await notes.read() if notes else None
         return await learning.upload_course(
             student_id=student_id,
             course_name=course_name,
             syllabus_name=syllabus.filename or "syllabus.txt",
             syllabus_bytes=await syllabus.read(),
-            notes_name=notes.filename or "notes.txt",
-            notes_bytes=await notes.read(),
+            notes_name=notes_name,
+            notes_bytes=notes_bytes,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

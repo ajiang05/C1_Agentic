@@ -49,14 +49,23 @@ def update_preferences(student_id: str, preferences: LearningPreferences) -> Lea
     return store.update_preferences(student_id, preferences).preferences
 
 
+def _content_type_for(filename: str) -> str:
+    lower = filename.lower()
+    if lower.endswith(".pdf"):
+        return "application/pdf"
+    if lower.endswith(".md"):
+        return "text/markdown"
+    return "text/plain"
+
+
 async def upload_course(
     *,
     student_id: str,
     course_name: str,
     syllabus_name: str,
     syllabus_bytes: bytes,
-    notes_name: str,
-    notes_bytes: bytes,
+    notes_name: str | None = None,
+    notes_bytes: bytes | None = None,
 ) -> UploadCourseResponse:
     store = get_store()
     if store.get_student(student_id) is None:
@@ -67,16 +76,19 @@ async def upload_course(
     create_course(course.id, student_id, course.course_name)
     material_ids: list[str] = []
 
-    for kind, filename, raw in (
+    materials: list[tuple[str, str, bytes]] = [
         ("syllabus", syllabus_name, syllabus_bytes),
-        ("notes", notes_name, notes_bytes),
-    ):
+    ]
+    if notes_name and notes_bytes:
+        materials.append(("notes", notes_name, notes_bytes))
+
+    for kind, filename, raw in materials:
         material_id = str(uuid4())
         storage_rel = f"{course.id}/{material_id}_{filename}"
         storage_path = upload_to_storage(
             path=storage_rel,
             data=raw,
-            content_type="text/plain",
+            content_type=_content_type_for(filename),
         )
         # Always keep a local copy for demo/retrieval when Storage is stubbed
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

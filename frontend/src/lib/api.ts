@@ -76,13 +76,13 @@ export const api = {
     studentId: string;
     courseName: string;
     syllabus: File;
-    notes: File;
+    notes?: File | null;
   }): Promise<UploadCourseResponse> => {
     const form = new FormData();
     form.append("student_id", params.studentId);
     form.append("course_name", params.courseName);
     form.append("syllabus", params.syllabus);
-    form.append("notes", params.notes);
+    if (params.notes) form.append("notes", params.notes);
     return request<UploadCourseResponse>("/courses/upload", {
       method: "POST",
       body: form,
