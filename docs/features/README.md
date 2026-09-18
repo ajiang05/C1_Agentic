@@ -1,6 +1,6 @@
 # MVP feature documentation
 
-These documents break [mvp.md](../../mvp.md) into implementable features for the [eight-person team](../team-ownership.md). They describe planned behavior; the repository currently contains a scaffold, not implemented features.
+These documents break [mvp.md](../../mvp.md) into implementable features for the [eight-person team](../team-ownership.md). They describe feature scope. The Supabase schema and learning-memory service are implemented; see [database setup](../database.md). Other features remain planned unless their guide says otherwise.
 
 ## Feature guides
 

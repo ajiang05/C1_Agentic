@@ -34,9 +34,12 @@ backend/
     db/
       migrations/            Database schema changes
       seeds/                 Development and demo seed data
+supabase/
+  migrations/                Canonical Supabase schema and memory functions
 shared/
   contracts/                 API schemas and example request/response data
 tests/
+  unit/                      Memory service validation and RPC behavior
   integration/               Agent, API, and persistence integration checks
   e2e/                       Complete student workflow checks
 demo/
@@ -45,7 +48,7 @@ demo/
 docs/                        Architecture and team coordination
 ```
 
-This is a folder scaffold, not a runnable application. No framework, package manager, or database has been selected yet. Empty directories contain `.gitkeep` files so Git tracks them; remove those files when adding implementation files.
+The Supabase schema and Node learning-memory service are implemented. See [database setup and usage](docs/database.md). The frontend and remaining backend features are still scaffolds. Empty directories contain `.gitkeep` files so Git tracks them; remove those files when adding implementation files.
 
 ## Implementation boundaries
 
