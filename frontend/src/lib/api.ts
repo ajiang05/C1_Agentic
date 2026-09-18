@@ -18,10 +18,31 @@ const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(90000),
+    });
+  } catch {
+    throw new Error(
+      "We couldn’t reach your learning service. Check your connection and try again, or explore the sample course.",
+    );
+  }
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${detail}`);
+    if (res.status === 404)
+      throw new Error(
+        "This learning session is no longer available. Your local work is kept; upload your materials again to start a new session.",
+      );
+    if (res.status === 413)
+      throw new Error("That file is too large. Try a smaller set of notes.");
+    if (res.status >= 500)
+      throw new Error(
+        "Your learning service is temporarily unavailable. Please try again, or explore the sample course.",
+      );
+    throw new Error(
+      "That step could not be saved. Check your details and try again.",
+    );
   }
   return res.json() as Promise<T>;
 }

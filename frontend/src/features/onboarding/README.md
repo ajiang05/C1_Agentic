@@ -1,5 +1,5 @@
-# Onboarding (Person 2)
+# Onboarding
 
-Plug-in folder for learning-preferences questionnaire UI.
+Implemented in [Preferences.tsx](Preferences.tsx). Uses the shared workspace in `src/lib/store.tsx` and the API client in `src/lib/api.ts`.
 
-Use `api.updatePreferences` from `frontend/src/lib/api.ts` and types from `shared/contracts/types.ts`.
+See the [frontend guide](../../../README.md) for running, testing, and integration boundaries.
