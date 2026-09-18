@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://c1-agentic.local/schemas/concept.json",
+  "title": "Concept",
+  "type": "object",
+  "required": ["id", "course_id", "name", "description", "prerequisite_ids", "order"],
+  "properties": {
+    "id": { "type": "string" },
+    "course_id": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "prerequisite_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "order": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

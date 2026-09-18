@@ -1,0 +1,31 @@
+{
+  "id": "lesson_bfs_1",
+  "concept_id": "concept_bfs",
+  "course_id": "course_demo",
+  "title": "Breadth-First Search",
+  "teaching_content": "BFS explores a graph level by level using a queue. Start at a source node, visit neighbors, then neighbors-of-neighbors.",
+  "teaching_format": "worked_example",
+  "question": {
+    "id": "q_bfs_1",
+    "prompt": "Which data structure does BFS typically use to track the next nodes to visit?",
+    "question_type": "multiple_choice",
+    "options": ["Stack", "Queue", "Priority queue", "Hash set only"],
+    "difficulty": "easy",
+    "source_references": [
+      {
+        "material_id": "mat_notes",
+        "material_name": "Chapter notes — Graph Algorithms",
+        "location": "p. 12",
+        "excerpt": "BFS uses a FIFO queue to expand the frontier one layer at a time."
+      }
+    ]
+  },
+  "source_references": [
+    {
+      "material_id": "mat_notes",
+      "material_name": "Chapter notes — Graph Algorithms",
+      "location": "p. 11–12",
+      "excerpt": "Breadth-first search visits vertices in order of increasing distance from the source."
+    }
+  ]
+}
