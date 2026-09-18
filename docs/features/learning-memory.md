@@ -2,6 +2,10 @@
 
 [Feature index](README.md) · [MVP specification](../../mvp.md) · [Team ownership](../team-ownership.md)
 
+## Implementation
+
+The Supabase schema, atomic attempt recording, preference storage, memory snapshots, and basic due-review recommendations are implemented. See [database setup and integration](../database.md), [the service](../../backend/src/services/learning-memory.mjs), and [contracts](../../shared/contracts/learning-memory.d.ts). Application endpoint and evaluator integration remain with their feature owners.
+
 ## Purpose
 
 Remember attempts, concept mastery, preferences, and progression across sessions.

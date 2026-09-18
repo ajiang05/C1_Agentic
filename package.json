@@ -1,0 +1,10 @@
+{
+  "name": "adaptive-study-journey",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:db": "node --test tests/integration/learning-memory.test.mjs"
+  }
+}
