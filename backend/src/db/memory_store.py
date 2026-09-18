@@ -104,7 +104,7 @@ class MemoryStore:
 
     def create_student(self, display_name: str, auth_user_id: str | None = None) -> StudentRecord:
         student = StudentRecord(
-            id=f"stu_{uuid4().hex[:8]}",
+            id=auth_user_id if auth_user_id else str(uuid4()),
             display_name=display_name,
             auth_user_id=auth_user_id,
         )
@@ -121,7 +121,7 @@ class MemoryStore:
 
     def create_course(self, student_id: str, course_name: str) -> CourseRecord:
         course = CourseRecord(
-            id=f"course_{uuid4().hex[:8]}",
+            id=str(uuid4()),
             student_id=student_id,
             course_name=course_name,
         )
