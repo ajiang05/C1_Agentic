@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://c1-agentic.local/schemas/student-progress.json",
+  "title": "StudentProgress",
+  "type": "object",
+  "required": [
+    "student_id",
+    "course_id",
+    "course_name",
+    "concepts",
+    "overall_mastery",
+    "recommended_reviews"
+  ],
+  "properties": {
+    "student_id": { "type": "string" },
+    "course_id": { "type": "string" },
+    "course_name": { "type": "string" },
+    "concepts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "concept_id",
+          "concept_name",
+          "mastery_score",
+          "attempts",
+          "correct_attempts",
+          "status"
+        ],
+        "properties": {
+          "concept_id": { "type": "string" },
+          "concept_name": { "type": "string" },
+          "mastery_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "attempts": { "type": "integer", "minimum": 0 },
+          "correct_attempts": { "type": "integer", "minimum": 0 },
+          "last_reviewed": { "type": ["string", "null"], "format": "date-time" },
+          "status": {
+            "type": "string",
+            "enum": ["locked", "available", "in_progress", "mastered", "needs_review"]
+          }
+        }
+      }
+    },
+    "overall_mastery": { "type": "number", "minimum": 0, "maximum": 1 },
+    "recommended_reviews": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}
