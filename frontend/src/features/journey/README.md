@@ -1,5 +1,5 @@
-# Journey (Person 2)
+# Journey
 
-Plug-in folder for Duolingo-style path UI.
+Implemented in [Journey.tsx](Journey.tsx). Uses the shared workspace in `src/lib/store.tsx` and the API client in `src/lib/api.ts`.
 
-Use `api.getJourney` / `api.generateJourney` from `frontend/src/lib/api.ts`.
+See the [frontend guide](../../../README.md) for running, testing, and integration boundaries.

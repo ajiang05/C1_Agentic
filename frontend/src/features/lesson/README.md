@@ -1,6 +1,5 @@
-# Lesson (Person 3)
+# Lesson
 
-Plug-in folder for teach / practice / feedback / source inspection UI.
+Implemented in [Lesson.tsx](Lesson.tsx). Uses the shared workspace in `src/lib/store.tsx` and the API client in `src/lib/api.ts`.
 
-Use `api.getLesson` and `api.submitAttempt` from `frontend/src/lib/api.ts`.
-Always render `source_references` from lesson and evaluation responses.
+See the [frontend guide](../../../README.md) for running, testing, and integration boundaries.
