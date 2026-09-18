@@ -54,6 +54,20 @@ export type Understanding =
   | "missing_prerequisite"
   | "guessing";
 
+export type EvaluationOutcome =
+  | "correct"
+  | "partially_correct"
+  | "incorrect"
+  | "no_attempt";
+
+export interface Misconception {
+  code: string;
+  description: string;
+  confidence: number;
+  evidence: string;
+  related_prerequisite_id?: string | null;
+}
+
 export interface Evaluation {
   correct: boolean;
   understanding: Understanding;
@@ -61,13 +75,25 @@ export interface Evaluation {
   identified_misconception?: string | null;
   estimated_mastery: number;
   source_references: SourceReference[];
+  /** Person 6 extensions — additive for FE / persistence */
+  outcome?: EvaluationOutcome;
+  score?: number;
+  confidence?: number;
+  strengths?: string[];
+  missing_elements?: string[];
+  misconceptions?: Misconception[];
+  mastery_delta?: number;
+  rationale?: string;
 }
 
 export type NextActionType =
   | "advance"
+  | "hint"
+  | "retry"
+  | "reteach"
+  | "review_prerequisite"
   | "retry_same"
   | "remediate"
-  | "review_prerequisite"
   | "easier_question"
   | "harder_question";
 

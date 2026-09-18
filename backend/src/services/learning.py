@@ -200,30 +200,73 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
     materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
     passages = select_passages(concept_name=concept.name, materials=materials)
 
-    # Stage: Evaluation (one LLM call inside agent)
+    mastery_key = (payload.student_id, payload.concept_id)
+    mastery_rec = store.mastery.get(mastery_key)
+    current_mastery = mastery_rec.mastery_score if mastery_rec else 0.0
+
+    prior_raw = [
+        a
+        for a in store.attempts
+        if a.get("student_id") == payload.student_id
+        and a.get("concept_id") == payload.concept_id
+    ]
+    # TODO(Person 5/7): persist outcome + difficulty on Attempt for richer history
+    prior_attempts = [
+        evaluation.PriorAttemptSummary(
+            student_answer=str(a.get("student_answer", "")),
+            outcome="correct" if a.get("correct") else "incorrect",
+            misconception_codes=[],
+        )
+        for a in prior_raw
+    ]
+    prior_outcomes = [p.outcome for p in prior_attempts]
+    prereq_names = {
+        c.id: c.name for c in course.concepts if c.id in concept.prerequisite_ids
+    }
+
+    # Stage: Evaluation (one LLM call inside agent when enabled)
     ev = evaluation.evaluate_answer(
         question_prompt=payload.question_prompt,
         student_answer=payload.student_answer,
+        concept_id=concept.id,
         concept_name=concept.name,
+        concept_description=concept.description,
+        prerequisite_ids=list(concept.prerequisite_ids),
+        prerequisite_names=prereq_names,
         source_passages=passages,
+        current_difficulty="easy",
+        current_mastery=current_mastery,
+        prior_attempts=prior_attempts,
+    )
+
+    progress_before = store.build_progress(payload.student_id, payload.course_id)
+
+    # Stage: Learning Manager (explicit rules — no LLM)
+    next_action, mastery_delta = learning_manager.decide_next_action(
+        concepts=course.concepts,
+        current_concept_id=payload.concept_id,
+        evaluation=ev,
+        progress=progress_before,
+        current_difficulty="easy",
+        current_mastery=current_mastery,
+        prior_outcomes=prior_outcomes,
+    )
+    estimated = max(0.0, min(1.0, current_mastery + mastery_delta))
+    ev = ev.model_copy(
+        update={
+            "mastery_delta": mastery_delta,
+            "estimated_mastery": estimated,
+        }
     )
 
     # Single persistence path for mastery
     store.apply_mastery_update(
         student_id=payload.student_id,
         concept_id=payload.concept_id,
-        estimated_mastery=ev.estimated_mastery,
+        estimated_mastery=estimated,
         correct=ev.correct,
     )
     progress = store.build_progress(payload.student_id, payload.course_id)
-
-    # Stage: Learning Manager (one LLM call inside agent)
-    next_action = learning_manager.decide_next_action(
-        concepts=course.concepts,
-        current_concept_id=payload.concept_id,
-        evaluation=ev,
-        progress=progress,
-    )
     course.current_concept_id = next_action.next_concept_id
 
     attempt = Attempt(
@@ -240,6 +283,7 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
     )
     store.attempts.append(attempt.model_dump(mode="json"))
     # TODO(Person 7): insert into attempts + student_concept_mastery via Supabase
+    # Persist outcome/score/next_action/mastery_delta alongside the attempt when schema lands.
 
     return SubmitAttemptResponse(
         attempt=attempt,

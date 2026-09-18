@@ -104,7 +104,7 @@ def get_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
 
 @router.post("/attempts", response_model=SubmitAttemptResponse)
 def post_attempt(body: SubmitAttemptRequest) -> SubmitAttemptResponse:
-    """Answer → evaluate (1 LLM) → save mastery → next action (1 LLM)."""
+    """Answer → evaluate (1 LLM) → save mastery → next action (rules, no LLM)."""
     try:
         return learning.submit_attempt(body)
     except KeyError as exc:

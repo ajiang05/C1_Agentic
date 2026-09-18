@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -17,6 +18,8 @@ def _load(folder: str, module_name: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load agent from {path}")
     mod = module_from_spec(spec)
+    # Register before exec so Pydantic/dataclasses can resolve cls.__module__
+    sys.modules[module_name] = mod
     spec.loader.exec_module(mod)
     return mod
 

@@ -9,9 +9,12 @@
       "type": "string",
       "enum": [
         "advance",
+        "hint",
+        "retry",
+        "reteach",
+        "review_prerequisite",
         "retry_same",
         "remediate",
-        "review_prerequisite",
         "easier_question",
         "harder_question"
       ]

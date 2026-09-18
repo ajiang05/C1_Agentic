@@ -24,11 +24,19 @@
         "location": "p. 12",
         "excerpt": "BFS uses a FIFO queue to expand the frontier one layer at a time."
       }
-    ]
+    ],
+    "outcome": "correct",
+    "score": 1.0,
+    "confidence": 0.95,
+    "strengths": ["Named the FIFO frontier structure used by BFS"],
+    "missing_elements": [],
+    "misconceptions": [],
+    "mastery_delta": 0.15,
+    "rationale": "Demo: answer matches expected BFS queue key."
   },
   "next_action": {
     "action": "advance",
-    "reason": "Strong understanding on an easy BFS check; move to the next concept.",
+    "reason": "High-confidence correct answer; advance along the journey.",
     "next_concept_id": "concept_dfs",
     "suggested_difficulty": "medium"
   },

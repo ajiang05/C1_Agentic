@@ -1,47 +1,34 @@
 """
 Learning Manager Agent — Person 6 plug point.
 
-Stage rule: ONE OpenAI call to choose the next action.
-Proposes next_action only; mastery writes go through services/ (Person 7).
+Next-action selection is implemented as explicit, testable rules in `policy.py`
+(not an LLM call). Agents propose; mastery writes go through services/ (Person 7).
 """
 
 from __future__ import annotations
 
-from src.api.schemas import Concept, Evaluation, NextAction, StudentProgress
-from src.llm.openai_client import complete_json, is_openai_available
+import sys
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
+from src.api.schemas import (
+    Concept,
+    Difficulty,
+    Evaluation,
+    EvaluationOutcome,
+    NextAction,
+    StudentProgress,
+)
 
-def _demo_next_action(
-    *,
-    concepts: list[Concept],
-    current_concept_id: str,
-    evaluation: Evaluation,
-) -> NextAction:
-    ordered = sorted(concepts, key=lambda c: c.order)
-    idx = next((i for i, c in enumerate(ordered) if c.id == current_concept_id), 0)
-    if evaluation.correct and evaluation.estimated_mastery >= 0.7:
-        nxt = ordered[min(idx + 1, len(ordered) - 1)]
-        return NextAction(
-            action="advance",
-            reason="Strong understanding; advance along the journey.",
-            next_concept_id=nxt.id,
-            suggested_difficulty="medium",
-        )
-    if evaluation.understanding == "missing_prerequisite":
-        current = ordered[idx]
-        prereq = current.prerequisite_ids[0] if current.prerequisite_ids else current_concept_id
-        return NextAction(
-            action="review_prerequisite",
-            reason="Missing prerequisite detected; review earlier concept.",
-            next_concept_id=prereq,
-            suggested_difficulty="easy",
-        )
-    return NextAction(
-        action="remediate",
-        reason="Needs remediation on the current concept before advancing.",
-        next_concept_id=current_concept_id,
-        suggested_difficulty="easy",
-    )
+_POLICY_PATH = Path(__file__).resolve().parent / "policy.py"
+_spec = spec_from_file_location("agents_learning_manager_policy", _POLICY_PATH)
+if _spec is None or _spec.loader is None:
+    raise ImportError(f"Cannot load learning-manager policy from {_POLICY_PATH}")
+_policy = module_from_spec(_spec)
+# Required before exec_module so @dataclass can resolve cls.__module__
+sys.modules[_spec.name] = _policy
+_spec.loader.exec_module(_policy)
+decision_from_evaluation = _policy.decision_from_evaluation
 
 
 def decide_next_action(
@@ -50,39 +37,32 @@ def decide_next_action(
     current_concept_id: str,
     evaluation: Evaluation,
     progress: StudentProgress,
-) -> NextAction:
-    """Choose next teaching action — single LLM invocation when enabled."""
-    if not is_openai_available():
-        return _demo_next_action(
-            concepts=concepts,
-            current_concept_id=current_concept_id,
-            evaluation=evaluation,
-        )
+    current_difficulty: Difficulty = "easy",
+    current_mastery: float | None = None,
+    prior_outcomes: list[EvaluationOutcome] | None = None,
+    hint_count: int = 0,
+) -> tuple[NextAction, float]:
+    """
+    Choose next teaching action + mastery_delta from evaluation evidence.
 
-    # TODO(Person 6): incorporate spaced-repetition schedule into context pack
-    system = (
-        "You are the Learning Manager. Given evaluation + progress, choose ONE next action. "
-        "Return JSON: "
-        '{"action":"advance|retry_same|remediate|review_prerequisite|easier_question|harder_question",'
-        '"reason":"...","next_concept_id":"...","suggested_difficulty":"easy|medium|hard"}'
-    )
-    user = (
-        f"current_concept_id={current_concept_id}\n"
-        f"concepts={[c.model_dump() for c in concepts]}\n"
-        f"evaluation={evaluation.model_dump()}\n"
-        f"progress={progress.model_dump(mode='json')}"
-    )
-    try:
-        raw = complete_json(system=system, user=user)
-    except Exception:
-        return _demo_next_action(
-            concepts=concepts,
-            current_concept_id=current_concept_id,
-            evaluation=evaluation,
+    Returns
+    -------
+    (NextAction, mastery_delta)
+    """
+    mastery = current_mastery
+    if mastery is None:
+        match = next(
+            (c for c in progress.concepts if c.concept_id == current_concept_id),
+            None,
         )
-    return NextAction(
-        action=raw.get("action", "remediate"),
-        reason=raw.get("reason", ""),
-        next_concept_id=raw.get("next_concept_id", current_concept_id),
-        suggested_difficulty=raw.get("suggested_difficulty", "easy"),
+        mastery = match.mastery_score if match else 0.0
+
+    return decision_from_evaluation(
+        evaluation=evaluation,
+        concepts=concepts,
+        current_concept_id=current_concept_id,
+        current_difficulty=current_difficulty,
+        current_mastery=mastery,
+        prior_outcomes=list(prior_outcomes or []),
+        hint_count=hint_count,
     )
