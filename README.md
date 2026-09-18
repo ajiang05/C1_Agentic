@@ -4,6 +4,8 @@ Turn a student's syllabus and course notes into a personalized learning journey 
 
 See [the MVP specification](mvp.md) for product scope and [team ownership](docs/team-ownership.md) for the eight-person split.
 
+See [feature documentation](docs/features/README.md) for each feature's scope, ownership, inputs and outputs, dependencies, and acceptance criteria.
+
 ## Project structure
 
 ```text
