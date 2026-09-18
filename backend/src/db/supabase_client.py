@@ -102,30 +102,31 @@ def insert_chunks(material_id: str, chunks: list[dict]):
         return
         
     records = []
-    for chunk in chunks:
-        text = chunk.get("text", "")
-        if not text:
-            continue
-            
+    
+    # Process chunks in batches of 100 to drastically speed up API calls
+    batch_size = 100
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        texts = [c.get("text", "") for c in batch]
+        
         try:
             res = openai_client.embeddings.create(
-                input=[text],
+                input=texts,
                 model="text-embedding-3-small"
             )
-            emb = res.data[0].embedding
+            for j, chunk in enumerate(batch):
+                records.append({
+                    "id": chunk.get("chunk_id"),
+                    "material_id": material_id,
+                    "chapter": chunk.get("chapter", "General"),
+                    "location": chunk.get("location", "unknown"),
+                    "content": texts[j],
+                    "embedding": res.data[j].embedding
+                })
         except Exception as e:
-            print(f"Failed to embed chunk: {e}")
+            print(f"Failed to embed batch: {e}")
             continue
             
-        records.append({
-            "id": chunk.get("chunk_id"),
-            "material_id": material_id,
-            "chapter": chunk.get("chapter", "General"),
-            "location": chunk.get("location", "unknown"),
-            "content": text,
-            "embedding": emb
-        })
-        
     if records:
         # Batch insert into Supabase
         client.table("document_chunks").upsert(records).execute()
