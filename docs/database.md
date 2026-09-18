@@ -5,7 +5,7 @@ The database schema and memory service are implemented. The application UI, auth
 ## Apply the schema
 
 1. Create or select a Supabase project.
-2. In its SQL editor, run [`202609180001_learning_memory.sql`](../supabase/migrations/202609180001_learning_memory.sql), then [`202609180002_memory_functions.sql`](../supabase/migrations/202609180002_memory_functions.sql). Run each once. These are the canonical migration files; future changes should use new migrations.
+2. In its SQL editor, run [`202609180001_learning_memory.sql`](../supabase/migrations/202609180001_learning_memory.sql), then [`202609180002_memory_functions.sql`](../supabase/migrations/202609180002_memory_functions.sql), then [`202609180003_document_chunks.sql`](../supabase/migrations/202609180003_document_chunks.sql). Run each once. These are the canonical migration files; future changes should use new migrations.
 3. Create a student through Supabase Auth, or use an existing Auth user. Anonymous Supabase Auth users can also have profiles; the unauthenticated `anon` database role has no access to learning data.
 4. Copy [`.env.example`](../.env.example) to `.env` and set the project URL and service-role key on the backend only. The service reads environment variables; use your framework's environment loader or Node's `--env-file=.env` option.
 5. Call `savePreferences(userId)` once to create the profile with defaults, then create the student's course through your backend. Course rows require an existing profile. No signup trigger is required.
@@ -20,6 +20,7 @@ The migrations assume the standard Supabase `auth.users`, `auth.uid()`, `anon`, 
 | `courses` | Student-owned courses |
 | `documents` | Uploaded syllabus/notes metadata and ingestion status |
 | `source_passages` | Extracted text and page/section references |
+| `document_chunks` | Agent retrieval text and vector embeddings; see [agent handoff](document-chunks.md) |
 | `concepts` | Ordered course concepts |
 | `concept_prerequisites` | Same-course prerequisite edges |
 | `concept_sources` | Supporting passages for a concept |
@@ -116,7 +117,7 @@ npm test
 TEST_DATABASE_URL=postgresql://localhost:55439/c1_memory_test npm run test:db
 ```
 
-The database suite requires `psql` and a running local PostgreSQL server with permission to create databases and test roles. It refuses non-local URLs and database names without the `c1_memory_test` prefix. It creates a uniquely named sibling database, applies the actual migrations, runs the tests, and drops that database in cleanup. Only missing Supabase-style roles are created at the cluster level; those roles remain for later runs. Use a disposable local cluster.
+The database suite requires `psql` and a running local PostgreSQL server with permission to create databases and test roles. It refuses non-local URLs and database names without the `c1_memory_test` prefix. It creates a uniquely named sibling database, applies the first two learning-memory migrations, runs the tests, and drops that database in cleanup. The document-chunks migration requires pgvector and is not covered by this local memory suite. Only missing Supabase-style roles are created at the cluster level; those roles remain for later runs. Use a disposable local cluster.
 
 The local harness supplies minimal `auth.users` and `auth.uid()` stand-ins. It tests real SQL, transactions, concurrency, permissions, and persistence, but does not claim to test hosted Supabase Auth or the live PostgREST gateway. Service HTTP behavior is covered separately with mocked responses.
 
