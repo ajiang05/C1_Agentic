@@ -204,10 +204,14 @@ function Shell() {
           CalmPath Study Environment <b>·</b> A grounded, gentle pace
         </span>
         <div>
-          <span>
+          <button 
+            className="evaluator-toggle" 
+            onClick={() => patch({ evaluatorMode: !state.evaluatorMode })}
+            style={{ background: 'none', border: 'none', color: state.evaluatorMode ? '#e74c3c' : 'inherit', cursor: 'pointer', font: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
             <Icon name="check" size={15} />
-            Source-aware learning
-          </span>
+            {state.evaluatorMode ? "Evaluator Mode: ON" : "Evaluator Mode: OFF"}
+          </button>
           <span>No high-pressure timers</span>
           <span>One step at a time</span>
         </div>

@@ -12,6 +12,8 @@ import type {
   SubmitAttemptRequest,
   SubmitAttemptResponse,
   UploadCourseResponse,
+  HumanEvaluationRequest,
+  HumanEvaluationResponse,
 } from "@contracts/types";
 
 const API_BASE =
@@ -24,7 +26,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       signal: AbortSignal.timeout(90000),
     });
-  } catch {
+  } catch (e: any) {
+    if (e.name === "TimeoutError" || e.name === "AbortError") {
+      throw new Error("The AI is taking too long to think. Please try again.");
+    }
     throw new Error(
       "We couldn’t reach your learning service. Check your connection and try again, or explore the sample course.",
     );
@@ -121,4 +126,11 @@ export const api = {
     request<StudentProgress>(
       `/students/${studentId}/progress?course_id=${encodeURIComponent(courseId)}`,
     ),
+
+  submitHumanEvaluation: (body: HumanEvaluationRequest) =>
+    request<HumanEvaluationResponse>("/attempts/human-eval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 };
