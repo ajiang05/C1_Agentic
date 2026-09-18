@@ -53,6 +53,9 @@ MasteryStatus = Literal[
     "locked", "available", "in_progress", "mastered", "needs_review"
 ]
 ExplanationLength = Literal["short", "moderate", "detailed"]
+InformationDensity = Literal["standard", "bulleted_summary", "simple_bolded"]
+VocabularyComplexity = Literal["standard", "simple_decodable"]
+EngagementStyle = Literal["standard", "gamified", "real_world"]
 
 
 class LessonQuestion(BaseModel):
@@ -129,6 +132,11 @@ class LearningPreferences(BaseModel):
     explanation_length: ExplanationLength = "moderate"
     preferred_session_length: int = 10
     hint_before_solution: bool = True
+    
+    # Neurodivergent / Onboarding Mappings
+    information_density: InformationDensity = "standard"
+    vocabulary_complexity: VocabularyComplexity = "standard"
+    engagement_style: EngagementStyle = "standard"
 
 
 class ConceptMastery(BaseModel):

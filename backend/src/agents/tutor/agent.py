@@ -78,14 +78,25 @@ def generate_lesson(
         )
 
     # TODO(Person 5): refine teaching_format selection from preferences
-    system = (
-        "You are the Tutor Agent. Produce ONE lesson JSON with teaching_content, "
-        "teaching_format, and one question. Every lesson and question MUST include "
-        "source_references drawn only from the provided passages. "
-        'Shape: {"title","teaching_content","teaching_format","question":'
-        '{"prompt","question_type","options","difficulty","source_references":[...]},'
+    # TODO(Person 5): refine teaching_format selection from preferences
+    system_rules = [
+        "You are the Tutor Agent. Produce ONE lesson JSON with teaching_content, ",
+        "teaching_format, and one question. Every lesson and question MUST include ",
+        "source_references drawn only from the provided passages. ",
+        'Shape: {"title","teaching_content","teaching_format","question":',
+        '{"prompt","question_type","options","difficulty","source_references":[...]},',
         '"source_references":[...]}'
-    )
+    ]
+    
+    if preferences.information_density == "bulleted_summary":
+        system_rules.append("CRITICAL: The student loses focus with long paragraphs. You MUST format your lesson exclusively in short, punchy bullet points. Keep engagement extremely high.")
+    elif preferences.information_density == "simple_bolded":
+        system_rules.append("CRITICAL: Use simple, highly-decodable vocabulary. Avoid complex sentence structures and double-negatives. Bold the most important keywords to guide the student's eyes.")
+        
+    if preferences.engagement_style == "gamified":
+        system_rules.append("Adopt an energetic, gamified tone. Celebrate small wins wildly. Use emojis strategically to hold attention.")
+
+    system = " ".join(system_rules)
     prefs = preferences.model_dump_json()
     passages = [s.model_dump() for s in source_passages]
     user = (
