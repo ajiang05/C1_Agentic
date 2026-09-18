@@ -28,7 +28,10 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "source-reference.json" }
-    }
+    },
+    "tutor_action": { "type": ["string", "null"] },
+    "guidance": { "type": ["string", "null"] },
+    "next_step": { "type": ["string", "null"] }
   },
   "additionalProperties": false
 }

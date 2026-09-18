@@ -42,6 +42,28 @@ class MaterialRecord:
 
 
 @dataclass
+class PendingTeaching:
+    """Last Learning Manager decision for the next Tutor stage."""
+
+    action: str = "reteach"
+    reason: str = ""
+    difficulty: str = "easy"
+    misconception: str | None = None
+    concept_id: str | None = None
+
+
+@dataclass
+class QuestionKey:
+    """Server-only answer key / rubric for a generated practice question."""
+
+    question_id: str
+    expected_answer: str
+    rubric: str = ""
+    concept_id: str = ""
+    course_id: str = ""
+
+
+@dataclass
 class CourseRecord:
     id: str
     student_id: str
@@ -49,6 +71,7 @@ class CourseRecord:
     concepts: list[Concept] = field(default_factory=list)
     materials: list[MaterialRecord] = field(default_factory=list)
     current_concept_id: str | None = None
+    pending_teaching: PendingTeaching | None = None
 
 
 @dataclass
@@ -67,6 +90,17 @@ class MemoryStore:
         self.courses: dict[str, CourseRecord] = {}
         self.mastery: dict[tuple[str, str], MasteryRecord] = {}
         self.attempts: list[dict[str, Any]] = []
+        self.question_keys: dict[str, QuestionKey] = {}
+
+    def save_question_key(self, key: QuestionKey) -> None:
+        self.question_keys[key.question_id] = key
+
+    def get_question_key(self, question_id: str) -> QuestionKey | None:
+        return self.question_keys.get(question_id)
+
+    def set_pending_teaching(self, course_id: str, pending: PendingTeaching) -> None:
+        course = self.courses[course_id]
+        course.pending_teaching = pending
 
     def create_student(self, display_name: str, auth_user_id: str | None = None) -> StudentRecord:
         student = StudentRecord(

@@ -73,6 +73,10 @@ class Lesson(BaseModel):
     teaching_format: TeachingFormat
     question: LessonQuestion
     source_references: list[SourceReference]
+    # Person 5 — additive tutor framing (also embedded in teaching_content)
+    tutor_action: str | None = None
+    guidance: str | None = None
+    next_step: str | None = None
 
 
 class Misconception(BaseModel):
