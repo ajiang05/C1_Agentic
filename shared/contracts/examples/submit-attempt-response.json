@@ -1,0 +1,62 @@
+{
+  "attempt": {
+    "id": "att_1",
+    "student_id": "stu_demo",
+    "course_id": "course_demo",
+    "concept_id": "concept_bfs",
+    "question_id": "q_bfs_1",
+    "question_prompt": "Which data structure does BFS typically use to track the next nodes to visit?",
+    "student_answer": "Queue",
+    "correct": true,
+    "identified_misconception": null,
+    "created_at": "2026-09-18T18:00:00Z"
+  },
+  "evaluation": {
+    "correct": true,
+    "understanding": "strong",
+    "feedback": "Correct — BFS expands a FIFO frontier, which matches a queue.",
+    "identified_misconception": null,
+    "estimated_mastery": 0.75,
+    "source_references": [
+      {
+        "material_id": "mat_notes",
+        "material_name": "Chapter notes — Graph Algorithms",
+        "location": "p. 12",
+        "excerpt": "BFS uses a FIFO queue to expand the frontier one layer at a time."
+      }
+    ]
+  },
+  "next_action": {
+    "action": "advance",
+    "reason": "Strong understanding on an easy BFS check; move to the next concept.",
+    "next_concept_id": "concept_dfs",
+    "suggested_difficulty": "medium"
+  },
+  "progress": {
+    "student_id": "stu_demo",
+    "course_id": "course_demo",
+    "course_name": "Graph Algorithms",
+    "concepts": [
+      {
+        "concept_id": "concept_repr",
+        "concept_name": "Graph Representation",
+        "mastery_score": 0.9,
+        "attempts": 2,
+        "correct_attempts": 2,
+        "last_reviewed": "2026-09-18T17:50:00Z",
+        "status": "mastered"
+      },
+      {
+        "concept_id": "concept_bfs",
+        "concept_name": "Breadth-First Search",
+        "mastery_score": 0.75,
+        "attempts": 1,
+        "correct_attempts": 1,
+        "last_reviewed": "2026-09-18T18:00:00Z",
+        "status": "in_progress"
+      }
+    ],
+    "overall_mastery": 0.55,
+    "recommended_reviews": []
+  }
+}
