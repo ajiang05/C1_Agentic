@@ -8,6 +8,8 @@ Keep this separate from lesson generation (Tutor Agent).
 from __future__ import annotations
 
 from src.api.schemas import SourceReference
+from src.retrieval.vector_store import vector_store
+from src.db.supabase_client import search_chunks, supabase_configured
 
 
 def select_passages(
@@ -17,34 +19,42 @@ def select_passages(
     limit: int = 3,
 ) -> list[SourceReference]:
     """
-    materials items: {id, name, text}
-
-    Stub: keyword window around the concept name; fall back to first paragraph.
-    TODO(Person 4): embeddings / chunk index.
+    materials items: {id, name, text, chunks}
     """
     refs: list[SourceReference] = []
-    needle = concept_name.lower()
-    for mat in materials:
-        text = mat.get("text") or ""
-        idx = text.lower().find(needle)
-        if idx >= 0:
-            start = max(0, idx - 80)
-            end = min(len(text), idx + 200)
-            excerpt = text[start:end].strip() or text[:240]
-            location = f"offset {start}"
-        else:
-            excerpt = (text[:240] or "No excerpt available.").strip()
-            location = "p. 1"
+    material_ids = [m["id"] for m in materials]
+    
+    if supabase_configured():
+        # Use Supabase pgvector search
+        best_chunks = search_chunks(concept_name, material_ids, limit=limit)
+    else:
+        # Fallback to local in-memory vector store
+        all_chunks = []
+        for mat in materials:
+            mat_chunks = mat.get("chunks", [])
+            if mat_chunks:
+                all_chunks.extend(mat_chunks)
+            else:
+                text = mat.get("text", "")
+                if text:
+                    all_chunks.append({
+                        "chunk_id": f"{mat['id']}_fallback",
+                        "material_id": mat["id"],
+                        "material_name": mat.get("name", "material"),
+                        "location": "p. 1",
+                        "text": text[:1000]
+                    })
+        best_chunks = vector_store.search(concept_name, all_chunks, top_k=limit)
+    
+    for chunk in best_chunks:
         refs.append(
             SourceReference(
-                material_id=mat["id"],
-                material_name=mat.get("name", "material"),
-                location=location,
-                excerpt=excerpt,
+                material_id=chunk.get("material_id", "mat_unknown"),
+                material_name=chunk.get("material_name", "material"),
+                location=chunk.get("location", "unknown"),
+                excerpt=chunk.get("content") or chunk.get("text", "")[:500]
             )
         )
-        if len(refs) >= limit:
-            break
 
     if not refs:
         refs.append(
@@ -56,3 +66,4 @@ def select_passages(
             )
         )
     return refs
+

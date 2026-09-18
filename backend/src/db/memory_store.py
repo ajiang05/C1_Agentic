@@ -38,6 +38,7 @@ class MaterialRecord:
     text: str
     storage_path: str | None
     kind: str  # syllabus | notes
+    chunks: list[dict] = field(default_factory=list)
 
 
 @dataclass

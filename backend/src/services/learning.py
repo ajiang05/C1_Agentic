@@ -66,7 +66,7 @@ async def upload_course(
         ("syllabus", syllabus_name, syllabus_bytes),
         ("notes", notes_name, notes_bytes),
     ):
-        material_id = f"mat_{uuid4().hex[:8]}"
+        material_id = str(uuid4())
         storage_rel = f"{course.id}/{material_id}_{filename}"
         storage_path = upload_to_storage(
             path=storage_rel,
@@ -94,8 +94,14 @@ async def upload_course(
                 text=ingested.text,
                 storage_path=storage_path,
                 kind=kind,
+                chunks=[c.__dict__ for c in ingested.chunks]
             )
         )
+        
+        # Async insert to pgvector
+        from src.db.supabase_client import insert_chunks
+        insert_chunks(material_id, [c.__dict__ for c in ingested.chunks])
+        
         material_ids.append(material_id)
 
     return UploadCourseResponse(
@@ -174,7 +180,7 @@ def open_lesson(course_id: str, concept_id: str, student_id: str) -> Lesson:
     if concept is None:
         raise KeyError(f"Unknown concept_id: {concept_id}")
 
-    materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
+    materials = [{"id": m.id, "name": m.name, "text": m.text, "chunks": m.chunks} for m in course.materials]
     passages = select_passages(concept_name=concept.name, materials=materials)
     return tutor.generate_lesson(
         course_id=course_id,
@@ -197,7 +203,7 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
     if concept is None:
         raise KeyError(f"Unknown concept_id: {payload.concept_id}")
 
-    materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
+    materials = [{"id": m.id, "name": m.name, "text": m.text, "chunks": m.chunks} for m in course.materials]
     passages = select_passages(concept_name=concept.name, materials=materials)
 
     mastery_key = (payload.student_id, payload.concept_id)
