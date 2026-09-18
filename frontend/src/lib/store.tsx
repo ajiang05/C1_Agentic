@@ -15,7 +15,7 @@ import type {
   SourceReference,
 } from "@contracts/types";
 import { api } from "./api";
-import { getAccessToken } from "./supabase";
+import { getAccessToken, signInAnonymously } from "./supabase";
 import {
   defaults,
   sampleJourney,
@@ -55,6 +55,7 @@ interface State {
   flags: LocalFlag[];
   reviewDismissed: string | null;
   citations: boolean;
+  evaluatorMode: boolean;
 }
 const initial: State = {
   version: 1,
@@ -74,6 +75,7 @@ const initial: State = {
   flags: [],
   reviewDismissed: null,
   citations: true,
+  evaluatorMode: false,
 };
 const KEY = "calmpath.workspace.v1";
 function readState(): State {
@@ -195,9 +197,14 @@ function useWorkspace() {
     run("Preparing your learning journey", async () => {
       let studentId = state.mode === "backend" ? state.studentId : null;
       if (!studentId) {
+        let token = await getAccessToken();
+        if (!token) {
+          await signInAnonymously();
+          token = await getAccessToken();
+        }
         const student = await api.createStudent(
           state.name,
-          await getAccessToken(),
+          token,
         );
         studentId = student.student_id;
         patch({ studentId, mode: "backend" });
@@ -304,6 +311,57 @@ function useWorkspace() {
         }
       }
     });
+  const submitManual = async (correct: boolean, feedback: string, misconception: string | null) =>
+    run("Submitting manual grade", async () => {
+      if (!state.lesson || !state.progress || !state.answer.trim() || state.result) return;
+      if (state.mode === "sample") {
+        setNotice("Evaluator mode is only available when connected to the backend.");
+        return;
+      }
+      const result = await api.submitHumanEvaluation({
+        student_id: state.studentId!,
+        course_id: state.lesson.course_id,
+        concept_id: state.lesson.concept_id,
+        content_id: state.lesson.question.id,
+        student_answer: state.answer,
+        correct,
+        feedback,
+        misconception,
+      });
+      setState((s) => ({
+        ...s,
+        result,
+        progress: result.progress,
+        history: [result, ...s.history].slice(0, 50),
+        journey: s.journey
+          ? {
+              ...s.journey,
+              current_concept_id: result.next_action.next_concept_id,
+              nodes: s.journey.nodes.map((n) => {
+                const m = result.progress.concepts.find((c) => c.concept_id === n.concept.id);
+                return m ? { ...n, status: m.status, mastery_score: m.mastery_score } : n;
+              }),
+            }
+          : null,
+      }));
+      if (state.sensory.audio) {
+        try {
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 440;
+          gain.gain.setValueAtTime(0.015, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+          osc.onended = () => void ctx.close();
+        } catch {
+          /* Audio is optional. */
+        }
+      }
+    });
   const refresh = () =>
     run("Refreshing your progress", async () => {
       if (!state.journey || state.mode === "sample") {
@@ -333,6 +391,7 @@ function useWorkspace() {
     upload,
     openLesson,
     submit,
+    submitManual,
     refresh,
   };
 }

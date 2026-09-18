@@ -150,16 +150,20 @@ function Stack({
   );
 }
 export function LessonPage() {
-  const { state, patch, openLesson, submit, go, busy } = useStudy();
+  const { state, patch, openLesson, submit, submitManual, go, busy } = useStudy();
   const [source, setSource] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [hint, setHint] = useState(false);
   const [step, setStep] = useState(1);
   const [paused, setPaused] = useState(false);
+  const [grading, setGrading] = useState(false);
+  const [evalForm, setEvalForm] = useState({ correct: true, feedback: "", misconception: "" });
+
   useEffect(() => {
     setHint(false);
     setStep(1);
     setConfirm(false);
+    setGrading(false);
   }, [state.lesson?.id]);
   useEffect(() => {
     if (state.result && !state.result.evaluation.correct) setStep(2);
@@ -298,9 +302,16 @@ export function LessonPage() {
                   <button
                     className="button primary"
                     disabled={!state.answer.trim() || !!busy}
-                    onClick={() => setConfirm(true)}
+                    onClick={() => {
+                      if (state.evaluatorMode) {
+                        setGrading(true);
+                        setEvalForm({ correct: true, feedback: "", misconception: "" });
+                      } else {
+                        setConfirm(true);
+                      }
+                    }}
                   >
-                    Check my answer <Icon name="arrow" size={17} />
+                    {state.evaluatorMode ? "Grade Student Answer (Evaluator)" : "Check my answer"} <Icon name="arrow" size={17} />
                   </button>
                 </div>
                 {hint && (
@@ -542,6 +553,39 @@ export function LessonPage() {
       )}
       {source && (
         <SourceDrawer sources={sources} onClose={() => setSource(false)} />
+      )}
+      {grading && (
+        <Modal title="Human Evaluator Mode" onClose={() => setGrading(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <strong>Student Answer:</strong>
+              <p>{state.answer}</p>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+              <input type="checkbox" checked={evalForm.correct} onChange={e => setEvalForm(f => ({ ...f, correct: e.target.checked }))} />
+              Is this correct?
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <strong>Feedback for Student:</strong>
+              <textarea rows={3} value={evalForm.feedback} onChange={e => setEvalForm(f => ({ ...f, feedback: e.target.value }))} placeholder="Provide constructive feedback..." />
+            </label>
+            {!evalForm.correct && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <strong>Identified Misconception (optional):</strong>
+                <input value={evalForm.misconception} onChange={e => setEvalForm(f => ({ ...f, misconception: e.target.value }))} placeholder="e.g. Forgets base case in recursion" />
+              </label>
+            )}
+            <div className="button-row">
+              <button className="button secondary" onClick={() => setGrading(false)}>Cancel</button>
+              <button className="button primary" disabled={!!busy} onClick={async () => {
+                setGrading(false);
+                await submitManual(evalForm.correct, evalForm.feedback, evalForm.misconception || null);
+              }}>
+                Submit Grade <Icon name="check" />
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

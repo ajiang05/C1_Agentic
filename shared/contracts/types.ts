@@ -212,3 +212,21 @@ export interface HealthResponse {
   version: string;
   openai: boolean;
 }
+
+export interface HumanEvaluationRequest {
+  student_id: string;
+  course_id: string;
+  concept_id: string;
+  content_id: string;
+  student_answer: string;
+  correct: boolean;
+  feedback: string;
+  misconception: string | null;
+}
+
+export interface HumanEvaluationResponse {
+  attempt: Attempt;
+  progress: StudentProgress;
+  next_action: NextAction;
+}
+
