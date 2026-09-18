@@ -16,6 +16,8 @@ from src.api.schemas import (
     StudentProgress,
     SubmitAttemptRequest,
     SubmitAttemptResponse,
+    HumanEvaluationRequest,
+    HumanEvaluationResponse,
     UpdatePreferencesRequest,
     UploadCourseResponse,
 )
@@ -121,6 +123,15 @@ def post_attempt(body: SubmitAttemptRequest) -> SubmitAttemptResponse:
     """Answer → evaluate (1 LLM) → save mastery → next action (rules, no LLM)."""
     try:
         return learning.submit_attempt(body)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/attempts/human-eval", response_model=HumanEvaluationResponse)
+def post_human_eval(body: HumanEvaluationRequest) -> HumanEvaluationResponse:
+    """Manual evaluation by a human grader, bypasses LLM."""
+    try:
+        return learning.submit_human_evaluation(body)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

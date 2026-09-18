@@ -170,3 +170,155 @@ def search_chunks(query: str, material_ids: list[str], limit: int = 3, chapter_f
         print(f"Supabase RPC match_chunks failed: {e}")
         return []
 
+
+def create_profile(user_id: str, display_name: str) -> None:
+    if not supabase_configured():
+        return
+    client = get_supabase()
+    try:
+        client.table("profiles").upsert({
+            "id": user_id,
+            "display_name": display_name
+        }).execute()
+    except Exception as e:
+        print(f"Failed to create profile: {e}")
+
+
+def create_course(course_id: str, user_id: str, name: str) -> None:
+    if not supabase_configured():
+        return
+    client = get_supabase()
+    try:
+        client.table("courses").insert({
+            "id": course_id,
+            "user_id": user_id,
+            "name": name
+        }).execute()
+    except Exception as e:
+        print(f"Failed to create course: {e}")
+
+
+def create_document(doc_id: str, course_id: str, user_id: str, title: str, kind: str) -> None:
+    if not supabase_configured():
+        return
+    client = get_supabase()
+    try:
+        client.table("documents").insert({
+            "id": doc_id,
+            "course_id": course_id,
+            "user_id": user_id,
+            "title": title,
+            "kind": kind,
+            "status": "ready"
+        }).execute()
+    except Exception as e:
+        print(f"Failed to create document: {e}")
+
+
+def create_concepts(course_id: str, user_id: str, concepts: list[Any]) -> None:
+    if not supabase_configured():
+        return
+    client = get_supabase()
+    try:
+        records = []
+        for c in concepts:
+            records.append({
+                "id": c.id,
+                "course_id": course_id,
+                "user_id": user_id,
+                "name": c.name,
+                "description": c.description,
+                "position": c.order
+            })
+        if records:
+            client.table("concepts").insert(records).execute()
+        
+        prereq_records = []
+        for c in concepts:
+            for p_id in c.prerequisite_ids:
+                prereq_records.append({
+                    "concept_id": c.id,
+                    "prerequisite_id": p_id,
+                    "course_id": course_id,
+                    "user_id": user_id
+                })
+        if prereq_records:
+            client.table("concept_prerequisites").insert(prereq_records).execute()
+    except Exception as e:
+        print(f"Failed to create concepts: {e}")
+
+
+def create_learning_content(content_id: str, concept_id: str, course_id: str, user_id: str, explanation: str, question: dict, teaching_strategy: str = "worked_example", difficulty: int = 1) -> None:
+    if not supabase_configured():
+        return
+    client = get_supabase()
+    try:
+        client.table("learning_content").insert({
+            "id": content_id,
+            "concept_id": concept_id,
+            "course_id": course_id,
+            "user_id": user_id,
+            "explanation": explanation,
+            "question": question,
+            "teaching_strategy": teaching_strategy,
+            "difficulty": difficulty
+        }).execute()
+    except Exception as e:
+        print(f"Failed to create learning content: {e}")
+
+
+def record_attempt(user_id: str, attempt_id: str, content_id: str, student_answer: dict, correct: bool, feedback: str, misconception: str | None = None, related_concept_id: str | None = None, confidence: float | None = None, is_review: bool = False) -> dict | None:
+    if not supabase_configured():
+        return None
+    client = get_supabase()
+    try:
+        response = client.rpc(
+            "record_learning_attempt",
+            {
+                "p_user_id": user_id,
+                "p_attempt_id": attempt_id,
+                "p_content_id": content_id,
+                "p_student_answer": student_answer,
+                "p_correct": correct,
+                "p_feedback": feedback,
+                "p_misconception": misconception,
+                "p_related_concept_id": related_concept_id,
+                "p_confidence": confidence,
+                "p_is_review": is_review
+            }
+        ).execute()
+        return response.data
+    except Exception as e:
+        print(f"Supabase RPC record_learning_attempt failed: {e}")
+        return None
+
+
+def get_learning_memory(user_id: str, course_id: str) -> dict | None:
+    if not supabase_configured():
+        return None
+    client = get_supabase()
+    try:
+        response = client.rpc(
+            "get_learning_memory",
+            {
+                "p_user_id": user_id,
+                "p_course_id": course_id
+            }
+        ).execute()
+        return response.data
+    except Exception as e:
+        print(f"Supabase RPC get_learning_memory failed: {e}")
+        return None
+
+
+def get_course_documents(course_id: str) -> list[dict]:
+    if not supabase_configured():
+        return []
+    client = get_supabase()
+    try:
+        response = client.table("documents").select("*").eq("course_id", course_id).execute()
+        return response.data
+    except Exception as e:
+        print(f"Failed to fetch course documents: {e}")
+        return []
+

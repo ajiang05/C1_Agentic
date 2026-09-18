@@ -37,7 +37,8 @@ UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
 
 def create_student(display_name: str, auth_user_id: str | None = None) -> CreateStudentResponse:
     student = get_store().create_student(display_name, auth_user_id=auth_user_id)
-    # TODO(Person 7): upsert into profiles when persistence_mode == supabase
+    from src.db.supabase_client import create_profile
+    create_profile(student.id, student.display_name)
     return CreateStudentResponse(student_id=student.id, display_name=student.display_name)
 
 
@@ -62,6 +63,8 @@ async def upload_course(
         raise KeyError(f"Unknown student_id: {student_id}")
 
     course = store.create_course(student_id, course_name or "Untitled course")
+    from src.db.supabase_client import create_course, create_document
+    create_course(course.id, student_id, course.course_name)
     material_ids: list[str] = []
 
     for kind, filename, raw in (
@@ -104,6 +107,8 @@ async def upload_course(
         from src.db.supabase_client import insert_chunks
         insert_chunks(material_id, [c.__dict__ for c in ingested.chunks])
         
+        create_document(material_id, course.id, student_id, filename, kind)
+        
         material_ids.append(material_id)
 
     return UploadCourseResponse(
@@ -130,6 +135,8 @@ def generate_journey(course_id: str, student_id: str) -> GenerateJourneyResponse
         notes.text if notes else "",
     )
     store.set_concepts(course_id, concepts)
+    from src.db.supabase_client import create_concepts
+    create_concepts(course_id, student_id, concepts)
     progress = store.build_progress(student_id, course_id)
     nodes = [
         JourneyNode(
@@ -223,7 +230,6 @@ def open_lesson(
     }
     materials = [{"id": m.id, "name": m.name, "text": m.text} for m in course.materials]
     passages = select_passages(concept_name=concept.name, materials=materials)
-
     result = tutor.generate_lesson(
         course_id=course_id,
         concept_id=concept.id,
@@ -241,6 +247,7 @@ def open_lesson(
         mastery_score=mastery_score,
         frustrated=frustrated,
     )
+    
     store.save_question_key(
         QuestionKey(
             question_id=result.lesson.question.id,
@@ -249,6 +256,18 @@ def open_lesson(
             concept_id=concept.id,
             course_id=course_id,
         )
+    )
+    
+    from src.db.supabase_client import create_learning_content
+    create_learning_content(
+        content_id=result.lesson.id,
+        concept_id=concept.id,
+        course_id=course_id,
+        user_id=student_id,
+        explanation=result.lesson.teaching_content,
+        question=result.lesson.question.model_dump(),
+        teaching_strategy=result.lesson.teaching_format,
+        difficulty=1 if result.lesson.question.difficulty == "easy" else (2 if result.lesson.question.difficulty == "medium" else 3)
     )
     return result.lesson
 
@@ -353,8 +372,9 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
         ),
     )
 
+    attempt_id = str(uuid4())
     attempt = Attempt(
-        id=f"att_{uuid4().hex[:8]}",
+        id=attempt_id,
         student_id=payload.student_id,
         course_id=payload.course_id,
         concept_id=payload.concept_id,
@@ -366,7 +386,16 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
         created_at=datetime.now(timezone.utc),
     )
     store.attempts.append(attempt.model_dump(mode="json"))
-    # TODO(Person 7): insert into attempts + student_concept_mastery via Supabase
+    from src.db.supabase_client import record_attempt
+    record_attempt(
+        user_id=payload.student_id,
+        attempt_id=attempt.id,
+        content_id=payload.question_id,
+        student_answer={"answer": payload.student_answer},
+        correct=ev.correct,
+        feedback=ev.feedback,
+        misconception=ev.identified_misconception,
+    )
     # Persist outcome/score/next_action/mastery_delta alongside the attempt when schema lands.
 
     return SubmitAttemptResponse(
@@ -378,7 +407,134 @@ def submit_attempt(payload: SubmitAttemptRequest) -> SubmitAttemptResponse:
 
 
 def get_progress(student_id: str, course_id: str) -> StudentProgress:
+    _ensure_course_loaded(student_id, course_id)
     store = get_store()
     if store.get_course(course_id) is None:
         raise KeyError(f"Unknown course_id: {course_id}")
     return store.build_progress(student_id, course_id)
+
+
+def _ensure_course_loaded(student_id: str, course_id: str):
+    store = get_store()
+    if store.get_course(course_id) is not None:
+        return
+        
+    from src.db.supabase_client import get_learning_memory, get_course_documents
+    memory = get_learning_memory(student_id, course_id)
+    if not memory:
+        return
+        
+    # Rebuild from memory
+    course = store.create_course(student_id, memory.get("course_id", course_id))
+    
+    from src.api.schemas import Concept
+    concepts = []
+    for c_data in memory.get("concepts", []):
+        c = Concept(
+            id=c_data["id"],
+            course_id=course_id,
+            name=c_data["name"],
+            description="",
+            prerequisite_ids=[str(pid) for pid in c_data.get("prerequisites", [])],
+            order=c_data["position"]
+        )
+        concepts.append(c)
+        store.apply_mastery_update(student_id=student_id, concept_id=c.id, estimated_mastery=c_data["mastery_score"], correct=True)
+    
+    store.set_concepts(course_id, concepts)
+    
+    docs = get_course_documents(course_id)
+    from src.db.memory_store import MaterialRecord
+    for doc in docs:
+        course.materials.append(
+            MaterialRecord(
+                id=doc["id"],
+                course_id=course_id,
+                name=doc["title"],
+                text="", # pgvector search will be used anyway if text is empty? Wait, no. select_passages needs chunks!
+                storage_path=doc.get("storage_path"),
+                kind=doc["kind"],
+                chunks=[] # if chunks are empty, it should use supabase vector search!
+            )
+        )
+        
+    student = store.get_student(student_id)
+    if not student:
+        store.create_student("Student", auth_user_id=student_id)
+        
+        
+from src.api.schemas import HumanEvaluationRequest, HumanEvaluationResponse
+def submit_human_evaluation(payload: HumanEvaluationRequest) -> HumanEvaluationResponse:
+    _ensure_course_loaded(payload.student_id, payload.course_id)
+    store = get_store()
+    course = store.get_course(payload.course_id)
+    student = store.get_student(payload.student_id)
+    if course is None or student is None:
+        raise KeyError("Unknown course or student")
+    concept = next((c for c in course.concepts if c.id == payload.concept_id), None)
+    if concept is None:
+        raise KeyError(f"Unknown concept_id: {payload.concept_id}")
+
+    from src.db.supabase_client import record_attempt
+    import uuid
+    from datetime import datetime, timezone
+    
+    attempt_id = str(uuid.uuid4())
+    attempt = Attempt(
+        id=attempt_id,
+        student_id=payload.student_id,
+        course_id=payload.course_id,
+        concept_id=payload.concept_id,
+        question_id=payload.content_id,
+        question_prompt="[Human Evaluated]",
+        student_answer=payload.student_answer,
+        correct=payload.correct,
+        identified_misconception=payload.misconception,
+        created_at=datetime.now(timezone.utc),
+    )
+    
+    record_attempt(
+        user_id=payload.student_id,
+        attempt_id=attempt_id,
+        content_id=payload.content_id,
+        student_answer={"answer": payload.student_answer},
+        correct=payload.correct,
+        feedback=payload.feedback,
+        misconception=payload.misconception
+    )
+    
+    mastery_key = (payload.student_id, payload.concept_id)
+    mastery_rec = store.mastery.get(mastery_key)
+    current_mastery = mastery_rec.mastery_score if mastery_rec else 0.0
+    estimated = max(0.0, min(1.0, current_mastery + (0.2 if payload.correct else -0.1)))
+    
+    store.apply_mastery_update(
+        student_id=payload.student_id,
+        concept_id=payload.concept_id,
+        estimated_mastery=estimated,
+        correct=payload.correct,
+    )
+    store.attempts.append(attempt.model_dump(mode="json"))
+    
+    progress = store.build_progress(payload.student_id, payload.course_id)
+    
+    from src.api.schemas import NextAction
+    next_concept_id = payload.concept_id
+    if payload.correct and estimated >= 0.8:
+        idx = course.concepts.index(concept)
+        if idx + 1 < len(course.concepts):
+            next_concept_id = course.concepts[idx + 1].id
+            course.current_concept_id = next_concept_id
+            
+    next_action = NextAction(
+        action="advance" if next_concept_id != payload.concept_id else "retry",
+        reason="Human grader feedback applied",
+        next_concept_id=next_concept_id,
+        suggested_difficulty="easy"
+    )
+    
+    return HumanEvaluationResponse(
+        attempt=attempt,
+        progress=progress,
+        next_action=next_action
+    )

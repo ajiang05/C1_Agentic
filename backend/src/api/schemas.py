@@ -212,6 +212,23 @@ class SubmitAttemptResponse(BaseModel):
     progress: StudentProgress
 
 
+class HumanEvaluationRequest(BaseModel):
+    student_id: str
+    course_id: str
+    concept_id: str
+    content_id: str
+    student_answer: str
+    correct: bool
+    feedback: str
+    misconception: str | None = None
+
+
+class HumanEvaluationResponse(BaseModel):
+    attempt: Attempt
+    progress: StudentProgress
+    next_action: NextAction
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
     persistence: Literal["memory", "supabase"]

@@ -13,11 +13,11 @@ from src.api.schemas import Concept
 from src.llm.openai_client import complete_json, is_openai_available
 
 _DEMO_CONCEPTS: list[tuple[str, str, str, list[str]]] = [
-    ("concept_repr", "Graph Representation", "Adjacency lists, matrices, and basic graph vocabulary.", []),
-    ("concept_bfs", "Breadth-First Search", "Level-order traversal using a queue.", ["concept_repr"]),
-    ("concept_dfs", "Depth-First Search", "Recursive/stack-based deep exploration.", ["concept_repr"]),
-    ("concept_cycle", "Cycle Detection", "Detecting cycles with DFS coloring or parent tracking.", ["concept_dfs"]),
-    ("concept_topo", "Topological Sorting", "Ordering DAGs using DFS finish times or Kahn's algorithm.", ["concept_bfs", "concept_cycle"]),
+    ("11111111-1111-1111-1111-111111111111", "Graph Representation", "Adjacency lists, matrices, and basic graph vocabulary.", []),
+    ("22222222-2222-2222-2222-222222222222", "Breadth-First Search", "Level-order traversal using a queue.", ["11111111-1111-1111-1111-111111111111"]),
+    ("33333333-3333-3333-3333-333333333333", "Depth-First Search", "Recursive/stack-based deep exploration.", ["11111111-1111-1111-1111-111111111111"]),
+    ("44444444-4444-4444-4444-444444444444", "Cycle Detection", "Detecting cycles with DFS coloring or parent tracking.", ["33333333-3333-3333-3333-333333333333"]),
+    ("55555555-5555-5555-5555-555555555555", "Topological Sorting", "Ordering DAGs using DFS finish times or Kahn's algorithm.", ["22222222-2222-2222-2222-222222222222", "44444444-4444-4444-4444-444444444444"]),
 ]
 
 
@@ -102,14 +102,14 @@ def generate_concepts(course_id: str, syllabus_text: str, notes_text: str) -> li
     temp_to_id: dict[str, str] = {}
     for item in raw.get("concepts", []):
         temp_id = str(item.get("temp_id")) if item.get("temp_id") else str(uuid.uuid4())
-        real_id = f"concept_{uuid.uuid4().hex[:8]}"
+        real_id = str(uuid.uuid4())
         temp_to_id[temp_id] = real_id
         
     for item in sorted(raw.get("concepts", []), key=lambda x: int(x.get("order", 0))):
         temp_id = str(item.get("temp_id")) if item.get("temp_id") else ""
         concepts.append(
             Concept(
-                id=temp_to_id.get(temp_id, f"concept_{uuid.uuid4().hex[:8]}"),
+                id=temp_to_id.get(temp_id, str(uuid.uuid4())),
                 course_id=course_id,
                 name=str(item.get("name", "Untitled concept")),
                 description=str(item.get("description", "")),
